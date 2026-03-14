@@ -23,7 +23,7 @@ export default function UploadPage() {
   const canvasRef     = useRef(null)
   const streamRef     = useRef(null)
   const [camOn,    setCamOn]    = useState(false)
-  const [shots,    setShots]    = useState([])      // base64 strings
+  const [shots,    setShots]    = useState([])
   const [countdown,setCountdown]= useState(null)
   const [flashing, setFlashing] = useState(false)
   const [boothDone,setBoothDone]= useState(false)
@@ -41,14 +41,14 @@ export default function UploadPage() {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: 640, height: 480 }
       })
-      streamRef.current      = stream
+      streamRef.current          = stream
       videoRef.current.srcObject = stream
       await videoRef.current.play()
       setCamOn(true)
       setShots([])
       setBoothDone(false)
     } catch {
-      alert('Could not access camera. Please allow camera permission.')
+      alert('No camera found on this device 📷 — Use the Upload tab instead!')
     }
   }
 
@@ -57,7 +57,6 @@ export default function UploadPage() {
     setCamOn(false)
   }
 
-  // take one shot with flash effect
   const takeShot = useCallback(() => {
     const video  = videoRef.current
     const canvas = canvasRef.current
@@ -70,13 +69,10 @@ export default function UploadPage() {
     return dataUrl
   }, [])
 
-  // run 4-shot sequence with countdown
   async function runBoothSequence() {
     if (shots.length >= 4) return
     const captured = [...shots]
-
     for (let i = 0; i < 4 - shots.length; i++) {
-      // countdown 3..2..1
       for (let c = 3; c >= 1; c--) {
         setCountdown(c)
         await wait(1000)
@@ -89,7 +85,6 @@ export default function UploadPage() {
       setCountdown(null)
       await wait(600)
     }
-
     setBoothDone(true)
     stopCamera()
   }
@@ -104,7 +99,6 @@ export default function UploadPage() {
     setSuccess(false)
   }
 
-  // compress + upload a single file/blob to supabase storage
   async function uploadOne(fileOrBlob, name) {
     const compressed = await imageCompression(fileOrBlob, {
       maxSizeMB: 0.4,
@@ -118,27 +112,43 @@ export default function UploadPage() {
     if (upErr) throw upErr
 
     const { data } = supabase.storage.from('photos').getPublicUrl(path)
-
     const { data: { user } } = await supabase.auth.getUser()
+    const uploadedAt = new Date().toISOString()
+
     await supabase.from('photos').insert({
-      url: data.publicUrl,
-      caption: caption || null,
+      url:         data.publicUrl,
+      caption:     caption || null,
       uploaded_by: user.id,
+      created_at:  uploadedAt,
     })
+
+    // 🔔 Telegram notification
+    try {
+      await fetch('/api/notify', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photoUrl:   data.publicUrl,
+          caption:    caption || null,
+          uploadedAt,
+        }),
+      })
+    } catch {
+      console.log('Notification failed but upload succeeded')
+    }
+
     return data.publicUrl
   }
 
-  // convert base64 dataURL → Blob
   function dataURLtoBlob(dataUrl) {
     const [header, base64] = dataUrl.split(',')
-    const mime = header.match(/:(.*?);/)[1]
+    const mime   = header.match(/:(.*?);/)[1]
     const binary = atob(base64)
-    const arr = new Uint8Array(binary.length)
+    const arr    = new Uint8Array(binary.length)
     for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i)
     return new Blob([arr], { type: mime })
   }
 
-  // submit photobooth shots
   async function submitBooth() {
     if (!shots.length) return
     setUploading(true)
@@ -156,14 +166,11 @@ export default function UploadPage() {
     setUploading(false)
   }
 
-  // submit regular file uploads
   async function submitFiles() {
     if (!files.length) return
     setUploading(true)
     try {
-      for (const f of files) {
-        await uploadOne(f, f.name)
-      }
+      for (const f of files) await uploadOne(f, f.name)
       setSuccess(true)
       setFiles([])
       setPreviews([])
@@ -181,7 +188,6 @@ export default function UploadPage() {
   // ── UI ───────────────────────────────────────────────────────
   return (
     <div style={s.page}>
-      {/* flash overlay */}
       {flashing && <div style={s.flash} />}
 
       {/* header */}
@@ -198,15 +204,11 @@ export default function UploadPage() {
         <button
           style={{ ...s.tab, ...(tab === 'booth' ? s.tabActive : {}) }}
           onClick={() => { setTab('booth'); stopCamera() }}
-        >
-          🎞 Photobooth
-        </button>
+        >🎞 Photobooth</button>
         <button
           style={{ ...s.tab, ...(tab === 'upload' ? s.tabActive : {}) }}
           onClick={() => { setTab('upload'); stopCamera() }}
-        >
-          🖼 Upload Photos
-        </button>
+        >🖼 Upload</button>
       </div>
 
       {/* ── PHOTOBOOTH TAB ── */}
@@ -216,7 +218,7 @@ export default function UploadPage() {
           <p style={s.cardSub}>Takes 4 shots automatically — strike a pose! 🌸</p>
 
           <div style={s.boothLayout}>
-            {/* camera / preview */}
+            {/* camera */}
             <div style={s.camBox}>
               <video
                 ref={videoRef}
@@ -225,18 +227,14 @@ export default function UploadPage() {
               />
               {!camOn && !boothDone && (
                 <div style={s.camPlaceholder}>
-                  <span style={{ fontSize: 56 }}>📸</span>
-                  <p style={{ color: '#9b8fa0', marginTop: 12, fontSize: 14 }}>
-                    Camera is off
-                  </p>
+                  <span style={{ fontSize: 48 }}>📸</span>
+                  <p style={{ color: '#9b8fa0', marginTop: 10, fontSize: 13 }}>Camera is off</p>
                 </div>
               )}
               {boothDone && (
                 <div style={s.camPlaceholder}>
-                  <span style={{ fontSize: 48 }}>🎉</span>
-                  <p style={{ color: '#e879a0', marginTop: 12, fontWeight: 500 }}>
-                    4 shots taken!
-                  </p>
+                  <span style={{ fontSize: 44 }}>🎉</span>
+                  <p style={{ color: '#e879a0', marginTop: 10, fontWeight: 500 }}>4 shots taken!</p>
                 </div>
               )}
               {countdown !== null && (
@@ -244,7 +242,7 @@ export default function UploadPage() {
               )}
             </div>
 
-            {/* photo strip preview */}
+            {/* strip preview */}
             <div style={s.strip}>
               {[0, 1, 2, 3].map(i => (
                 <div key={i} style={s.stripFrame}>
@@ -259,7 +257,6 @@ export default function UploadPage() {
 
           <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-          {/* caption */}
           <input
             style={s.captionInput}
             placeholder="Add a caption (optional) ♡"
@@ -267,17 +264,12 @@ export default function UploadPage() {
             onChange={e => setCaption(e.target.value)}
           />
 
-          {/* buttons */}
           <div style={s.btnRow}>
             {!camOn && !boothDone && (
-              <button style={s.btnPink} onClick={startCamera}>
-                Start Camera
-              </button>
+              <button style={s.btnPink} onClick={startCamera}>Start Camera</button>
             )}
             {camOn && shots.length < 4 && (
-              <button style={s.btnPink} onClick={runBoothSequence}>
-                📸 Take 4 Shots!
-              </button>
+              <button style={s.btnPink} onClick={runBoothSequence}>📸 Take 4 Shots!</button>
             )}
             {boothDone && (
               <>
@@ -307,7 +299,6 @@ export default function UploadPage() {
           <h2 style={s.cardTitle}>Upload Photos</h2>
           <p style={s.cardSub}>Pick photos from your phone or PC 🌸</p>
 
-          {/* drop zone */}
           <label style={s.dropZone}>
             <input
               type="file"
@@ -318,7 +309,7 @@ export default function UploadPage() {
             />
             {previews.length === 0 ? (
               <div style={{ textAlign: 'center' }}>
-                <span style={{ fontSize: 48 }}>🖼️</span>
+                <span style={{ fontSize: 44 }}>🖼️</span>
                 <p style={{ color: '#9b8fa0', marginTop: 10, fontSize: 14 }}>
                   Tap to choose photos
                 </p>
@@ -363,7 +354,7 @@ const s = {
   page: {
     minHeight: '100vh',
     background: 'linear-gradient(135deg, #fdf0f5 0%, #fdf6f0 60%, #f5f0fd 100%)',
-    padding: '0 0 60px',
+    padding: '0 0 80px',
   },
   flash: {
     position: 'fixed', inset: 0,
@@ -371,15 +362,14 @@ const s = {
     opacity: 0.85,
     zIndex: 9999,
     pointerEvents: 'none',
-    animation: 'none',
   },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '24px 32px',
+    padding: '16px 20px',
     borderBottom: '1px solid rgba(244,167,185,0.2)',
-    background: 'rgba(255,255,255,0.7)',
+    background: 'rgba(255,255,255,0.8)',
     backdropFilter: 'blur(8px)',
     position: 'sticky',
     top: 0,
@@ -387,11 +377,11 @@ const s = {
   },
   logo: {
     fontFamily: "'Playfair Display', serif",
-    fontSize: '22px',
+    fontSize: '20px',
     color: '#2c1f2e',
   },
   logoSub: {
-    fontSize: '12px',
+    fontSize: '11px',
     color: '#9b8fa0',
     marginTop: 2,
   },
@@ -399,22 +389,23 @@ const s = {
     background: 'none',
     border: '1px solid #f4a7b9',
     borderRadius: '10px',
-    padding: '8px 16px',
+    padding: '8px 14px',
     color: '#e879a0',
     cursor: 'pointer',
     fontSize: '13px',
     fontFamily: "'DM Sans', sans-serif",
+    WebkitTapHighlightColor: 'transparent',
   },
   tabs: {
     display: 'flex',
     gap: '8px',
-    padding: '24px 32px 0',
+    padding: '16px 16px 0',
     maxWidth: '720px',
     margin: '0 auto',
   },
   tab: {
     flex: 1,
-    padding: '12px',
+    padding: '12px 8px',
     borderRadius: '12px',
     border: '1.5px solid #f0e4ea',
     background: '#fff',
@@ -422,7 +413,7 @@ const s = {
     fontSize: '14px',
     fontFamily: "'DM Sans', sans-serif",
     color: '#9b8fa0',
-    transition: 'all 0.2s',
+    WebkitTapHighlightColor: 'transparent',
   },
   tabActive: {
     background: 'linear-gradient(135deg, #f4a7b9, #e879a0)',
@@ -432,35 +423,36 @@ const s = {
   },
   card: {
     maxWidth: '720px',
-    margin: '24px auto',
+    margin: '16px auto',
+    marginLeft: '12px',
+    marginRight: '12px',
     background: '#fff',
-    borderRadius: '24px',
-    padding: '36px',
+    borderRadius: '20px',
+    padding: '24px 18px',
     boxShadow: '0 4px 30px rgba(244,167,185,0.12)',
     border: '1px solid rgba(244,167,185,0.15)',
     display: 'flex',
     flexDirection: 'column',
-    gap: '20px',
+    gap: '16px',
   },
   cardTitle: {
     fontFamily: "'Playfair Display', serif",
-    fontSize: '24px',
+    fontSize: '22px',
     color: '#2c1f2e',
   },
   cardSub: {
-    fontSize: '14px',
+    fontSize: '13px',
     color: '#9b8fa0',
-    marginTop: '-12px',
+    marginTop: '-8px',
   },
   boothLayout: {
     display: 'flex',
-    gap: '20px',
-    alignItems: 'flex-start',
-    flexWrap: 'wrap',
+    flexDirection: 'column',
+    gap: '14px',
   },
   camBox: {
-    flex: '1 1 300px',
-    minHeight: '280px',
+    width: '100%',
+    minHeight: '240px',
     background: '#fdf0f5',
     borderRadius: '16px',
     overflow: 'hidden',
@@ -475,14 +467,14 @@ const s = {
     height: '100%',
     objectFit: 'cover',
     borderRadius: '14px',
-    transform: 'scaleX(-1)', // mirror
+    transform: 'scaleX(-1)',
   },
   camPlaceholder: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '40px',
+    padding: '32px',
   },
   countdown: {
     position: 'absolute',
@@ -490,28 +482,31 @@ const s = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '96px',
+    fontSize: '80px',
     fontFamily: "'Playfair Display', serif",
     color: '#fff',
     textShadow: '0 2px 20px rgba(0,0,0,0.4)',
     background: 'rgba(0,0,0,0.25)',
     pointerEvents: 'none',
   },
+  // horizontal strip on mobile
   strip: {
     display: 'flex',
-    flexDirection: 'column',
+    flexDirection: 'row',
     gap: '8px',
     background: '#2c1f2e',
-    padding: '12px',
+    padding: '10px',
     borderRadius: '12px',
-    minWidth: '110px',
+    justifyContent: 'center',
+    overflowX: 'auto',
   },
   stripFrame: {
-    width: '90px',
-    height: '70px',
+    width: '72px',
+    height: '80px',
     borderRadius: '6px',
     overflow: 'hidden',
     background: '#3d2e40',
+    flexShrink: 0,
   },
   stripImg: {
     width: '100%',
@@ -526,14 +521,14 @@ const s = {
     alignItems: 'center',
     justifyContent: 'center',
     color: '#6b5070',
-    fontSize: '20px',
+    fontSize: '18px',
     fontFamily: "'Playfair Display', serif",
   },
   captionInput: {
     padding: '14px 16px',
     borderRadius: '12px',
     border: '1.5px solid #f0e4ea',
-    fontSize: '14px',
+    fontSize: '16px', // 16px prevents iOS zoom on focus!
     fontFamily: "'DM Sans', sans-serif",
     outline: 'none',
     background: '#fdf8fa',
@@ -542,8 +537,7 @@ const s = {
   },
   btnRow: {
     display: 'flex',
-    gap: '12px',
-    flexWrap: 'wrap',
+    gap: '10px',
   },
   btnPink: {
     flex: 1,
@@ -551,12 +545,13 @@ const s = {
     color: '#fff',
     border: 'none',
     borderRadius: '14px',
-    padding: '16px',
+    padding: '16px 12px',
     fontSize: '15px',
     fontFamily: "'DM Sans', sans-serif",
     fontWeight: '500',
     cursor: 'pointer',
-    minWidth: '140px',
+    WebkitTapHighlightColor: 'transparent',
+    touchAction: 'manipulation',
   },
   btnOutline: {
     flex: 1,
@@ -564,28 +559,29 @@ const s = {
     color: '#e879a0',
     border: '1.5px solid #f4a7b9',
     borderRadius: '14px',
-    padding: '16px',
+    padding: '16px 12px',
     fontSize: '15px',
     fontFamily: "'DM Sans', sans-serif",
     cursor: 'pointer',
-    minWidth: '100px',
+    WebkitTapHighlightColor: 'transparent',
+    touchAction: 'manipulation',
   },
   dropZone: {
-    display: 'block',
+    display: 'flex',
     border: '2px dashed #f4a7b9',
     borderRadius: '16px',
-    padding: '32px',
+    padding: '28px 16px',
     cursor: 'pointer',
     background: '#fdf8fa',
-    minHeight: '160px',
-    display: 'flex',
+    minHeight: '140px',
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
   },
   previewGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
-    gap: '10px',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
+    gap: '8px',
     width: '100%',
   },
   previewImg: {
