@@ -131,68 +131,73 @@ export default function PhotoboothPage() {
 
   // ── Generate strip on canvas ──────────────────────────────────
   async function generateStrip() {
-    const FRAME_W   = 400
-    const FRAME_H   = 300
-    const PAD       = 16
-    const STRIP_W   = FRAME_W + PAD * 2
-    const STRIP_H   = (FRAME_H + PAD) * layout + PAD + 60
+    const FRAME_W = 400
+    const FRAME_H = 300
+    const PAD     = 12
+    const FOOTER  = 56
+    const STRIP_W = FRAME_W + PAD * 2
+    const STRIP_H = PAD + (FRAME_H + PAD) * layout + FOOTER
 
-    const canvas = document.createElement('canvas')
+    const canvas  = document.createElement('canvas')
     canvas.width  = STRIP_W
     canvas.height = STRIP_H
-    const ctx = canvas.getContext('2d')
+    const ctx     = canvas.getContext('2d')
 
     // background
     ctx.fillStyle = '#1a0f1e'
     ctx.fillRect(0, 0, STRIP_W, STRIP_H)
 
-    // border
-    ctx.strokeStyle = 'rgba(244,167,185,0.4)'
+    // outer border
+    ctx.strokeStyle = 'rgba(244,167,185,0.5)'
     ctx.lineWidth   = 2
-    ctx.strokeRect(4, 4, STRIP_W - 8, STRIP_H - 8)
+    ctx.strokeRect(3, 3, STRIP_W - 6, STRIP_H - 6)
+
+    // load ALL images first in parallel
+    const images = await Promise.all(
+      shots.slice(0, layout).map(shot => loadImage(shot.dataUrl))
+    )
 
     // draw each frame
     for (let i = 0; i < layout; i++) {
-      const shot = shots[i]
-      if (!shot) continue
-      const img = await loadImage(shot.dataUrl)
-      const x   = PAD
-      const y   = PAD + i * (FRAME_H + PAD)
+      const img = images[i]
+      if (!img) continue
 
-      // frame bg
+      const x = PAD
+      const y = PAD + i * (FRAME_H + PAD)
+
+      // frame background
       ctx.fillStyle = '#2c1f2e'
-      ctx.roundRect(x, y, FRAME_W, FRAME_H, 8)
-      ctx.fill()
+      ctx.fillRect(x, y, FRAME_W, FRAME_H)
 
-      // apply filter
-      const f = FILTERS.find(f => f.id === shot.filterId)
-      ctx.filter = f?.css === 'none' ? 'none' : (f?.css || 'none')
+      // apply filter then draw image
+      const shot = shots[i]
+      const f    = FILTERS.find(f => f.id === shot.filterId)
+      ctx.filter  = (f && f.css !== 'none') ? f.css : 'none'
       ctx.drawImage(img, x, y, FRAME_W, FRAME_H)
-      ctx.filter = 'none'
+      ctx.filter  = 'none'
 
       // frame border
-      ctx.strokeStyle = 'rgba(244,167,185,0.25)'
+      ctx.strokeStyle = 'rgba(244,167,185,0.3)'
       ctx.lineWidth   = 1
       ctx.strokeRect(x, y, FRAME_W, FRAME_H)
     }
 
-    // footer text
-    const footerY = STRIP_H - 36
-    ctx.fillStyle = 'rgba(244,167,185,0.7)'
-    ctx.font      = 'italic 16px serif'
+    // footer
+    const footerY = STRIP_H - FOOTER + 16
+    ctx.fillStyle = 'rgba(244,167,185,0.8)'
+    ctx.font      = 'italic 18px Georgia, serif'
     ctx.textAlign = 'center'
     ctx.fillText("Deidree's Album ♡", STRIP_W / 2, footerY)
 
-    // date
     const date = new Date().toLocaleDateString('en-PH', {
       month: 'long', day: 'numeric', year: 'numeric',
-      timeZone: 'Asia/Manila'
+      timeZone: 'Asia/Manila',
     })
-    ctx.fillStyle = 'rgba(255,255,255,0.3)'
-    ctx.font      = '12px sans-serif'
-    ctx.fillText(date, STRIP_W / 2, footerY + 18)
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'
+    ctx.font      = '13px sans-serif'
+    ctx.fillText(date, STRIP_W / 2, footerY + 22)
 
-    return canvas.toDataURL('image/jpeg', 0.92)
+    return canvas.toDataURL('image/jpeg', 0.93)
   }
 
   function loadImage(src) {
@@ -394,12 +399,10 @@ export default function PhotoboothPage() {
             {shots.map((shot, i) => (
               <div key={i} style={s.reviewFrame}>
                 <img src={shot.dataUrl} style={s.reviewImg} alt={`shot ${i+1}`} />
-                <div style={s.reviewOverlay}>
-                  <button style={s.retakeBtn} onClick={() => retakeShot(i)}>
-                    🔄 Retake
-                  </button>
-                </div>
                 <p style={s.reviewLabel}>Shot {i + 1}</p>
+                <button style={s.retakeBtn} onClick={() => retakeShot(i)}>
+                  🔄 Retake
+                </button>
               </div>
             ))}
           </div>
@@ -674,48 +677,42 @@ const s = {
     width: '100%',
   },
   reviewFrame: {
-    position: 'relative',
     borderRadius: '14px',
     overflow: 'hidden',
-    aspectRatio: '4/3',
     background: '#2c1f2e',
     border: '1px solid rgba(244,167,185,0.15)',
+    display: 'flex',
+    flexDirection: 'column',
   },
   reviewImg: {
     width: '100%',
-    height: '100%',
+    aspectRatio: '4/3',
     objectFit: 'cover',
     display: 'block',
   },
   reviewOverlay: {
-    position: 'absolute',
-    inset: 0,
-    background: 'rgba(0,0,0,0.45)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    opacity: 1,  // always visible on mobile!
+    display: 'none',
   },
   retakeBtn: {
-    background: 'rgba(255,255,255,0.9)',
-    color: '#2c1f2e',
+    width: '100%',
+    background: 'rgba(232,121,160,0.85)',
+    color: '#fff',
     border: 'none',
-    borderRadius: '10px',
-    padding: '8px 14px',
+    padding: '9px 8px',
     fontSize: '13px',
     fontFamily: "'DM Sans', sans-serif",
     cursor: 'pointer',
     fontWeight: '500',
+    WebkitTapHighlightColor: 'transparent',
+    touchAction: 'manipulation',
   },
   reviewLabel: {
-    position: 'absolute',
-    bottom: 6,
-    left: 0,
-    right: 0,
     textAlign: 'center',
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.5)',
     fontSize: '11px',
     fontFamily: "'DM Sans', sans-serif",
+    padding: '4px 0',
+    background: '#1a0f1e',
   },
 
   // strip preview
