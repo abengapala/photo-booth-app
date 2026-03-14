@@ -694,9 +694,7 @@ const s = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    opacity: 0,
-    transition: 'opacity 0.2s',
-    // show on touch devices always
+    opacity: 1,  // always visible on mobile!
   },
   retakeBtn: {
     background: 'rgba(255,255,255,0.9)',
