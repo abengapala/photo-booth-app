@@ -280,14 +280,16 @@ export default function PhotoboothPage() {
   async function saveStrip() {
     setUploading(true)
     try {
-      // convert dataUrl to blob
-      const res  = await fetch(stripUrl)
-      const blob = await res.blob()
+      // convert dataUrl → blob directly (preserves filter)
+      const blob = dataURLtoBlob(stripUrl)
 
+      // compress AFTER conversion so filter is preserved
       const compressed = await imageCompression(blob, {
-        maxSizeMB: 0.8,
-        maxWidthOrHeight: 1200,
-        useWebWorker: true,
+        maxSizeMB:        0.6,   // max 600 KB — good quality for a strip
+        maxWidthOrHeight: 1400,  // keep enough resolution
+        useWebWorker:     true,
+        fileType:         'image/jpeg',
+        initialQuality:   0.85,
       })
 
       const path = `strip_${Date.now()}.jpg`
@@ -307,7 +309,7 @@ export default function PhotoboothPage() {
         created_at:  uploadedAt,
       })
 
-      // Telegram notify
+      // Telegram notify with the actual strip URL
       try {
         await fetch('/api/notify', {
           method:  'POST',
@@ -327,6 +329,16 @@ export default function PhotoboothPage() {
       alert('Save failed: ' + e.message)
     }
     setUploading(false)
+  }
+
+  // convert base64 dataURL → Blob
+  function dataURLtoBlob(dataUrl) {
+    const [header, base64] = dataUrl.split(',')
+    const mime    = header.match(/:(.*?);/)[1]
+    const binary  = atob(base64)
+    const arr     = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i)
+    return new Blob([arr], { type: mime })
   }
 
   function resetAll() {
