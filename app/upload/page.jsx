@@ -4,16 +4,20 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import imageCompression from 'browser-image-compression'
 
-// ── Filters ──────────────────────────────────────────────────
+// ── Filters (Webcam Toy inspired) ────────────────────────────
 const FILTERS = [
-  { id: 'normal',   label: 'Normal',   css: 'none' },
-  { id: 'soft',     label: 'Soft',     css: 'brightness(1.08) saturate(0.9) contrast(0.95)' },
-  { id: 'warm',     label: 'Warm',     css: 'sepia(0.25) saturate(1.4) brightness(1.05)' },
-  { id: 'vintage',  label: 'Vintage',  css: 'sepia(0.5) contrast(1.1) brightness(0.95) saturate(0.85)' },
-  { id: 'retro',    label: 'Retro',    css: 'sepia(0.3) hue-rotate(10deg) saturate(1.5) contrast(1.1)' },
-  { id: 'grayscale',label: 'B&W',      css: 'grayscale(1) contrast(1.1)' },
-  { id: 'cold',     label: 'Cold',     css: 'saturate(0.8) hue-rotate(180deg) brightness(1.05)' },
-  { id: 'pink',     label: 'Pink',     css: 'sepia(0.2) saturate(1.8) hue-rotate(300deg) brightness(1.05)' },
+  { id: 'normal',   label: '✨ Normal',  css: 'none' },
+  { id: 'soft',     label: '🌸 Soft',    css: 'brightness(1.1) saturate(0.85) contrast(0.92)' },
+  { id: 'warm',     label: '🌅 Warm',    css: 'sepia(0.3) saturate(1.5) brightness(1.08) contrast(1.05)' },
+  { id: 'pink',     label: '🩷 Pink',    css: 'sepia(0.15) saturate(2) hue-rotate(300deg) brightness(1.08)' },
+  { id: 'vintage',  label: '📷 Vintage', css: 'sepia(0.55) contrast(1.15) brightness(0.92) saturate(0.8)' },
+  { id: 'retro',    label: '🎞 Retro',   css: 'sepia(0.4) hue-rotate(15deg) saturate(1.6) contrast(1.15)' },
+  { id: 'bw',       label: '🖤 B&W',     css: 'grayscale(1) contrast(1.15) brightness(1.05)' },
+  { id: 'dramatic', label: '🎭 Drama',   css: 'grayscale(0.3) contrast(1.4) brightness(0.9) saturate(1.3)' },
+  { id: 'lomo',     label: '🔴 Lomo',    css: 'saturate(1.8) contrast(1.3) brightness(0.85)' },
+  { id: 'cold',     label: '🧊 Cold',    css: 'saturate(0.7) hue-rotate(195deg) brightness(1.1)' },
+  { id: 'golden',   label: '✨ Golden',  css: 'sepia(0.4) saturate(1.6) brightness(1.12) hue-rotate(340deg)' },
+  { id: 'dreamy',   label: '💫 Dreamy',  css: 'brightness(1.12) saturate(0.75) contrast(0.88)' },
 ]
 
 // ── Layouts ───────────────────────────────────────────────────
@@ -648,26 +652,31 @@ const s = {
   filterRow: {
     display: 'flex',
     gap: '8px',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+    overflowX: 'auto',
     width: '100%',
+    paddingBottom: '6px',
+    scrollbarWidth: 'none', // hide scrollbar Firefox
+    WebkitOverflowScrolling: 'touch',
   },
   filterBtn: {
     background: 'rgba(255,255,255,0.06)',
-    border: '1px solid rgba(244,167,185,0.15)',
+    border: '1.5px solid rgba(244,167,185,0.15)',
     borderRadius: '20px',
-    padding: '7px 14px',
+    padding: '8px 14px',
     color: '#9b8fa0',
     cursor: 'pointer',
-    fontSize: '13px',
+    fontSize: '12px',
     fontFamily: "'DM Sans', sans-serif",
     WebkitTapHighlightColor: 'transparent',
     touchAction: 'manipulation',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
   },
   filterBtnActive: {
     background: 'linear-gradient(135deg, #f4a7b9, #e879a0)',
-    border: '1px solid transparent',
+    border: '1.5px solid transparent',
     color: '#fff',
+    fontWeight: '500',
   },
 
   // shot progress
