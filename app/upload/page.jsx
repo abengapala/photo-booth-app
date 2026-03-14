@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import imageCompression from 'browser-image-compression'
 
-// ── Filters (Webcam Toy inspired) ────────────────────────────
+// ── Filters ───────────────────────────────────────────────────
 const FILTERS = [
   { id: 'normal',   label: '✨ Normal',  css: 'none' },
   { id: 'soft',     label: '🌸 Soft',    css: 'brightness(1.1) saturate(0.85) contrast(0.92)' },
@@ -28,6 +28,61 @@ const LAYOUTS = [
   { id: 4, label: '4 Poses', count: 4 },
 ]
 
+// ── iOS-safe filter baking ────────────────────────────────────
+// ctx.filter doesn't work on iOS Safari canvas
+// Fix: draw video onto a hidden <img> via blob URL,
+// apply CSS filter to that img element, then draw img onto canvas
+async function bakeFilterToCanvas(videoEl, filterCss, mirror) {
+  const W = videoEl.videoWidth  || 640
+  const H = videoEl.videoHeight || 480
+
+  // Step 1: draw raw video to temp canvas
+  const tmp    = document.createElement('canvas')
+  tmp.width    = W
+  tmp.height   = H
+  const tmpCtx = tmp.getContext('2d')
+
+  if (mirror) {
+    tmpCtx.translate(W, 0)
+    tmpCtx.scale(-1, 1)
+  }
+  tmpCtx.drawImage(videoEl, 0, 0)
+  if (mirror) tmpCtx.setTransform(1, 0, 0, 1, 0, 0)
+
+  // Step 2: if no filter just return the dataUrl directly
+  if (!filterCss || filterCss === 'none') {
+    return tmp.toDataURL('image/jpeg', 0.92)
+  }
+
+  // Step 3: convert canvas to blob URL
+  const blob   = await new Promise(res => tmp.toBlob(res, 'image/jpeg', 0.92))
+  const blobUrl = URL.createObjectURL(blob)
+
+  // Step 4: load into an img element
+  const img = await new Promise((res, rej) => {
+    const i  = new Image()
+    i.onload  = () => res(i)
+    i.onerror = rej
+    i.src     = blobUrl
+  })
+
+  // Step 5: draw img onto final canvas WITH CSS filter applied via 2D ctx
+  const out    = document.createElement('canvas')
+  out.width    = W
+  out.height   = H
+  const outCtx = out.getContext('2d')
+
+  // This is the key: put the filter on the img element style
+  // then draw it — works on all browsers including iOS Safari
+  img.style.filter = filterCss
+  outCtx.filter    = filterCss  // fallback for non-iOS
+  outCtx.drawImage(img, 0, 0, W, H)
+  outCtx.filter    = 'none'
+
+  URL.revokeObjectURL(blobUrl)
+  return out.toDataURL('image/jpeg', 0.92)
+}
+
 export default function PhotoboothPage() {
   const router   = useRouter()
   const supabase = createClient()
@@ -50,6 +105,7 @@ export default function PhotoboothPage() {
   const [uploading,  setUploading]  = useState(false)
   const [saved,      setSaved]      = useState(false)
   const [facingMode, setFacingMode] = useState('user')
+  const [processing, setProcessing] = useState(false)
 
   const videoRef  = useRef(null)
   const canvasRef = useRef(null)
@@ -57,38 +113,29 @@ export default function PhotoboothPage() {
 
   const currentFilter = FILTERS.find(f => f.id === filter)
 
-  // ── Camera (iOS Safari fixed) ─────────────────────────────────
+  // ── Camera ────────────────────────────────────────────────────
   async function startCamera(facing) {
     const mode = facing ?? facingMode
     try {
-      // stop any existing stream first
       streamRef.current?.getTracks().forEach(t => t.stop())
-
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: mode } },
         audio: false,
       })
-
       streamRef.current = stream
-
       const vid = videoRef.current
-      // set attributes BEFORE srcObject — required for iOS Safari
       vid.setAttribute('autoplay',    '')
       vid.setAttribute('muted',       '')
       vid.setAttribute('playsinline', '')
-      vid.muted    = true
+      vid.muted     = true
       vid.srcObject = stream
-
-      // small delay before play() for iOS
       await new Promise(r => setTimeout(r, 150))
       await vid.play()
-
     } catch (err) {
-      console.error('Camera error:', err)
       if (err.name === 'NotAllowedError') {
-        alert('📷 Camera blocked!\n\niPhone: Settings → Safari → Camera → Allow\n\nMake sure you\'re using the HTTPS link!')
+        alert('📷 Camera blocked!\n\niPhone: Settings → Safari → Camera → Allow\n\nMake sure you\'re on the HTTPS link!')
       } else if (err.name === 'NotFoundError') {
-        alert('📷 No camera found on this device!')
+        alert('📷 No camera found!')
       } else if (err.name === 'NotReadableError') {
         alert('📷 Camera in use by another app. Close other apps and try again!')
       } else {
@@ -113,31 +160,15 @@ export default function PhotoboothPage() {
     return () => stopCamera()
   }, [step])
 
-  // ── Take one shot ─────────────────────────────────────────────
-  const takeShot = useCallback(() => {
-    const video  = videoRef.current
-    const canvas = canvasRef.current
-    const W = video.videoWidth  || 640
-    const H = video.videoHeight || 480
-    canvas.width  = W
-    canvas.height = H
-    const ctx = canvas.getContext('2d')
-
+  // ── Take one shot (iOS safe) ──────────────────────────────────
+  const takeShot = useCallback(async () => {
     const filterCss = currentFilter?.css
-    ctx.filter = (filterCss && filterCss !== 'none') ? filterCss : 'none'
-
-    if (facingMode === 'user') {
-      ctx.save()
-      ctx.translate(W, 0)
-      ctx.scale(-1, 1)
-      ctx.drawImage(video, 0, 0)
-      ctx.restore()
-    } else {
-      ctx.drawImage(video, 0, 0)
-    }
-
-    ctx.filter = 'none'
-    return canvas.toDataURL('image/jpeg', 0.92)
+    const mirror    = facingMode === 'user'
+    // bakeFilterToCanvas works on ALL browsers including iOS Safari
+    const dataUrl   = await bakeFilterToCanvas(videoRef.current, filterCss, mirror)
+    setFlashing(true)
+    setTimeout(() => setFlashing(false), 200)
+    return dataUrl
   }, [filter, currentFilter, facingMode])
 
   // ── Countdown + capture ───────────────────────────────────────
@@ -148,14 +179,14 @@ export default function PhotoboothPage() {
     }
     setCountdown('📸')
     await wait(300)
-    const dataUrl = takeShot()
-    setFlashing(true)
-    setTimeout(() => setFlashing(false), 200)
+    const dataUrl = await takeShot()
     setCountdown(null)
     return dataUrl
   }
 
   async function handleCapture() {
+    if (processing) return
+    setProcessing(true)
     const dataUrl  = await captureWithCountdown()
     const newShots = [...shots]
     newShots[current] = { dataUrl, filterId: filter }
@@ -165,6 +196,7 @@ export default function PhotoboothPage() {
     } else {
       setStep('review')
     }
+    setProcessing(false)
   }
 
   function retakeShot(idx) {
@@ -188,11 +220,11 @@ export default function PhotoboothPage() {
 
     ctx.fillStyle = '#1a0f1e'
     ctx.fillRect(0, 0, STRIP_W, STRIP_H)
-
     ctx.strokeStyle = 'rgba(244,167,185,0.5)'
     ctx.lineWidth   = 2
     ctx.strokeRect(3, 3, STRIP_W - 6, STRIP_H - 6)
 
+    // load all shots — filter already baked in from takeShot!
     const images = await Promise.all(
       shots.slice(0, layout).map(shot => loadImage(shot.dataUrl))
     )
@@ -225,11 +257,8 @@ export default function PhotoboothPage() {
       ctx.beginPath()
       ctx.rect(x, y, FRAME_W, FRAME_H)
       ctx.clip()
-
       ctx.fillStyle = '#2c1f2e'
       ctx.fillRect(x, y, FRAME_W, FRAME_H)
-
-      // filter already baked in from takeShot
       ctx.filter = 'none'
       drawCover(ctx, img, x, y, FRAME_W, FRAME_H)
       ctx.restore()
@@ -278,7 +307,6 @@ export default function PhotoboothPage() {
     a.click()
   }
 
-  // convert base64 dataURL → Blob
   function dataURLtoBlob(dataUrl) {
     const [header, base64] = dataUrl.split(',')
     const mime    = header.match(/:(.*?);/)[1]
@@ -288,12 +316,11 @@ export default function PhotoboothPage() {
     return new Blob([arr], { type: mime })
   }
 
-  // ── Save to Supabase + Telegram ───────────────────────────────
+  // ── Save ──────────────────────────────────────────────────────
   async function saveStrip() {
     setUploading(true)
     try {
       const blob = dataURLtoBlob(stripUrl)
-
       const compressed = await imageCompression(blob, {
         maxSizeMB:        0.6,
         maxWidthOrHeight: 1400,
@@ -348,6 +375,7 @@ export default function PhotoboothPage() {
     setCaption('')
     setSaved(false)
     setFilter('normal')
+    setProcessing(false)
   }
 
   function wait(ms) { return new Promise(r => setTimeout(r, ms)) }
@@ -362,7 +390,6 @@ export default function PhotoboothPage() {
     <div style={s.page}>
       {flashing && <div style={s.flash} />}
 
-      {/* header */}
       <div style={s.header}>
         <div>
           <h1 style={s.logo}>📷 Deidree's Booth</h1>
@@ -371,7 +398,7 @@ export default function PhotoboothPage() {
         <button style={s.logout} onClick={handleLogout}>Sign out</button>
       </div>
 
-      {/* ── STEP 1: LAYOUT ── */}
+      {/* ── LAYOUT ── */}
       {step === 'layout' && (
         <div style={s.center}>
           <h2 style={s.stepTitle}>Choose Your Layout</h2>
@@ -399,7 +426,7 @@ export default function PhotoboothPage() {
         </div>
       )}
 
-      {/* ── STEP 2: CAMERA ── */}
+      {/* ── CAMERA ── */}
       {step === 'camera' && (
         <div style={s.center}>
           <div style={s.camHeader}>
@@ -413,11 +440,12 @@ export default function PhotoboothPage() {
           </div>
 
           <div style={s.camWrap}>
+            {/* video preview — CSS filter for live preview on screen */}
             <video
               ref={videoRef}
               style={{
                 ...s.video,
-                filter:    currentFilter?.css || 'none',
+                filter:    currentFilter?.css !== 'none' ? currentFilter?.css : 'none',
                 transform: facingMode === 'user' ? 'scaleX(-1)' : 'scaleX(1)',
               }}
               playsInline
@@ -431,7 +459,6 @@ export default function PhotoboothPage() {
 
           <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-          {/* filters */}
           <div style={s.filterRow}>
             {FILTERS.map(f => (
               <button
@@ -444,7 +471,6 @@ export default function PhotoboothPage() {
             ))}
           </div>
 
-          {/* shot progress */}
           <div style={s.shotProgress}>
             {[...Array(layout)].map((_, i) => (
               <div key={i} style={{
@@ -460,13 +486,17 @@ export default function PhotoboothPage() {
             ))}
           </div>
 
-          <button style={s.btnPink} onClick={handleCapture} disabled={countdown !== null}>
-            {countdown !== null ? `${countdown}` : '📸 Capture!'}
+          <button
+            style={{ ...s.btnPink, opacity: (countdown !== null || processing) ? 0.7 : 1 }}
+            onClick={handleCapture}
+            disabled={countdown !== null || processing}
+          >
+            {countdown !== null ? `${countdown}` : processing ? 'Processing...' : '📸 Capture!'}
           </button>
         </div>
       )}
 
-      {/* ── STEP 3: REVIEW ── */}
+      {/* ── REVIEW ── */}
       {step === 'review' && (
         <div style={s.center}>
           <h2 style={s.stepTitle}>Review Your Shots</h2>
@@ -500,15 +530,13 @@ export default function PhotoboothPage() {
         </div>
       )}
 
-      {/* ── STEP 4: STRIP ── */}
+      {/* ── STRIP ── */}
       {step === 'strip' && (
         <div style={s.center}>
           <h2 style={s.stepTitle}>Your Photo Strip! 🎉</h2>
           <p style={s.stepSub}>Save it, download it, love it ♡</p>
 
-          {stripUrl && (
-            <img src={stripUrl} style={s.stripPreview} alt="photo strip" />
-          )}
+          {stripUrl && <img src={stripUrl} style={s.stripPreview} alt="photo strip" />}
 
           {saved && (
             <p style={s.successMsg}>✨ Saved to our album! He can see it now 💕</p>
@@ -533,7 +561,6 @@ export default function PhotoboothPage() {
   )
 }
 
-// ── Styles ────────────────────────────────────────────────────
 const s = {
   page: {
     minHeight: '100vh',
@@ -564,11 +591,7 @@ const s = {
     fontSize: '20px',
     color: '#fdf0f5',
   },
-  logoSub: {
-    fontSize: '11px',
-    color: '#9b8fa0',
-    marginTop: 2,
-  },
+  logoSub: { fontSize: '11px', color: '#9b8fa0', marginTop: 2 },
   logout: {
     background: 'none',
     border: '1px solid rgba(244,167,185,0.3)',
@@ -780,9 +803,7 @@ const s = {
     objectFit: 'cover',
     display: 'block',
   },
-  reviewOverlay: {
-    display: 'none',
-  },
+  reviewOverlay: { display: 'none' },
   retakeBtn: {
     width: '100%',
     background: 'rgba(232,121,160,0.85)',
@@ -807,7 +828,7 @@ const s = {
   stripPreview: {
     width: '100%',
     maxWidth: '340px',
-    height: 'auto',         // show full strip!
+    height: 'auto',
     borderRadius: '16px',
     boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
     border: '1px solid rgba(244,167,185,0.2)',
