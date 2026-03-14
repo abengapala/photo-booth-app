@@ -35,12 +35,33 @@ export default function DashboardPage() {
   // ── Delete a photo ───────────────────────────────────────────
   async function deletePhoto(photo) {
     setDeleting(photo.id)
-    // extract storage path from URL
-    const path = photo.url.split('/photos/')[1]
-    await supabase.storage.from('photos').remove([path])
-    await supabase.from('photos').delete().eq('id', photo.id)
-    setPhotos(prev => prev.filter(p => p.id !== photo.id))
-    if (selected?.id === photo.id) setSelected(null)
+    try {
+      // extract storage path correctly from full supabase URL
+      const urlParts = photo.url.split('/storage/v1/object/public/photos/')
+      const filePath = urlParts[1]
+  
+      if (filePath) {
+        const { error: storageError } = await supabase.storage
+          .from('photos')
+          .remove([filePath])
+        if (storageError) console.error('Storage delete error:', storageError)
+      }
+  
+      // delete from database
+      const { error: dbError } = await supabase
+        .from('photos')
+        .delete()
+        .eq('id', photo.id)
+      if (dbError) console.error('DB delete error:', dbError)
+  
+      // update UI
+      setPhotos(prev => prev.filter(p => p.id !== photo.id))
+      if (selected?.id === photo.id) setSelected(null)
+  
+    } catch (e) {
+      console.error('Delete failed:', e)
+      alert('Delete failed: ' + e.message)
+    }
     setDeleting(null)
   }
 
