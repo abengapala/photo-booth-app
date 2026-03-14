@@ -45,14 +45,15 @@ export default function PhotoboothPage() {
   const [step,      setStep]      = useState('layout')
   const [layout,    setLayout]    = useState(4)
   const [filter,    setFilter]    = useState('normal')
-  const [shots,     setShots]     = useState([])       // { dataUrl, filter }[]
-  const [current,   setCurrent]   = useState(0)        // which shot we're taking
+  const [shots,     setShots]     = useState([])
+  const [current,   setCurrent]   = useState(0)
   const [countdown, setCountdown] = useState(null)
   const [flashing,  setFlashing]  = useState(false)
-  const [stripUrl,  setStripUrl]  = useState(null)     // generated strip data URL
+  const [stripUrl,  setStripUrl]  = useState(null)
   const [caption,   setCaption]   = useState('')
   const [uploading, setUploading] = useState(false)
   const [saved,     setSaved]     = useState(false)
+  const [facingMode,setFacingMode]= useState('user') // 'user' = front, 'environment' = back
 
   const videoRef  = useRef(null)
   const canvasRef = useRef(null)
@@ -61,17 +62,25 @@ export default function PhotoboothPage() {
   const currentFilter = FILTERS.find(f => f.id === filter)
 
   // ── Camera ───────────────────────────────────────────────────
-  async function startCamera() {
+  async function startCamera(facing = facingMode) {
     try {
+      // stop any existing stream first
+      streamRef.current?.getTracks().forEach(t => t.stop())
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: 640, height: 480 }
+        video: { facingMode: facing, width: 640, height: 480 }
       })
       streamRef.current          = stream
       videoRef.current.srcObject = stream
       await videoRef.current.play()
     } catch {
-      alert('No camera found 📷 — please allow camera permission or use the Upload tab!')
+      alert('No camera found 📷 — please allow camera permission!')
     }
+  }
+
+  async function switchCamera() {
+    const next = facingMode === 'user' ? 'environment' : 'user'
+    setFacingMode(next)
+    await startCamera(next)
   }
 
   function stopCamera() {
@@ -79,7 +88,7 @@ export default function PhotoboothPage() {
   }
 
   useEffect(() => {
-    if (step === 'camera') startCamera()
+    if (step === 'camera') startCamera(facingMode)
     else stopCamera()
     return () => stopCamera()
   }, [step])
@@ -93,13 +102,27 @@ export default function PhotoboothPage() {
     canvas.width  = W
     canvas.height = H
     const ctx = canvas.getContext('2d')
-    ctx.filter = currentFilter.css === 'none' ? 'none' : currentFilter.css
-    ctx.translate(W, 0)
-    ctx.scale(-1, 1)
-    ctx.drawImage(video, 0, 0)
-    ctx.setTransform(1, 0, 0, 1, 0, 0)
-    return canvas.toDataURL('image/jpeg', 0.9)
-  }, [filter, currentFilter])
+
+    // apply filter FIRST before any transform
+    const filterCss = currentFilter?.css
+    ctx.filter = (filterCss && filterCss !== 'none') ? filterCss : 'none'
+
+    if (facingMode === 'user') {
+      // front cam — mirror
+      ctx.save()
+      ctx.translate(W, 0)
+      ctx.scale(-1, 1)
+      ctx.drawImage(video, 0, 0)
+      ctx.restore()
+    } else {
+      // back cam — no mirror
+      ctx.drawImage(video, 0, 0)
+    }
+
+    // reset filter after drawing
+    ctx.filter = 'none'
+    return canvas.toDataURL('image/jpeg', 0.92)
+  }, [filter, currentFilter, facingMode])
 
   // ── Auto countdown + capture ──────────────────────────────────
   async function captureWithCountdown() {
@@ -201,14 +224,9 @@ export default function PhotoboothPage() {
       ctx.fillStyle = '#2c1f2e'
       ctx.fillRect(x, y, FRAME_W, FRAME_H)
 
-      // apply filter
-      const shot = shots[i]
-      const f    = FILTERS.find(f => f.id === shot.filterId)
-      ctx.filter  = (f && f.css !== 'none') ? f.css : 'none'
-
-      // draw with cover crop — no stretching!
-      drawCover(ctx, img, x, y, FRAME_W, FRAME_H)
+      // filter already baked into the photo from takeShot — just draw it!
       ctx.filter = 'none'
+      drawCover(ctx, img, x, y, FRAME_W, FRAME_H)
       ctx.restore()
 
       // frame border on top
@@ -373,13 +391,25 @@ export default function PhotoboothPage() {
       {/* ── STEP 2: CAMERA ── */}
       {step === 'camera' && (
         <div style={s.center}>
-          <h2 style={s.stepTitle}>Get Ready to Pose!</h2>
-          <p style={s.stepSub}>Shot {current + 1} of {layout} 📸</p>
+          <div style={s.camHeader}>
+            <div>
+              <h2 style={s.stepTitle}>Get Ready to Pose!</h2>
+              <p style={s.stepSub}>Shot {current + 1} of {layout} 📸</p>
+            </div>
+            {/* camera switch button */}
+            <button style={s.switchCamBtn} onClick={switchCamera} disabled={countdown !== null}>
+              🔄 Flip
+            </button>
+          </div>
 
           <div style={s.camWrap}>
             <video
               ref={videoRef}
-              style={{ ...s.video, filter: currentFilter.css }}
+              style={{
+                ...s.video,
+                filter: currentFilter?.css || 'none',
+                transform: facingMode === 'user' ? 'scaleX(-1)' : 'scaleX(1)',
+              }}
               playsInline muted
             />
             {countdown !== null && (
@@ -617,6 +647,27 @@ const s = {
   },
 
   // camera
+  camHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    gap: '12px',
+  },
+  switchCamBtn: {
+    background: 'rgba(255,255,255,0.08)',
+    border: '1.5px solid rgba(244,167,185,0.25)',
+    borderRadius: '12px',
+    padding: '10px 16px',
+    color: '#f4a7b9',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontFamily: "'DM Sans', sans-serif",
+    WebkitTapHighlightColor: 'transparent',
+    touchAction: 'manipulation',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+  },
   camWrap: {
     width: '100%',
     maxWidth: '480px',
@@ -631,8 +682,8 @@ const s = {
     width: '100%',
     height: '100%',
     objectFit: 'cover',
-    transform: 'scaleX(-1)',
     display: 'block',
+    transition: 'filter 0.2s',
   },
   countdown: {
     position: 'absolute',
