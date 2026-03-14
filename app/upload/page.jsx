@@ -131,10 +131,10 @@ export default function PhotoboothPage() {
 
   // ── Generate strip on canvas ──────────────────────────────────
   async function generateStrip() {
-    const FRAME_W = 400
-    const FRAME_H = 300
-    const PAD     = 12
-    const FOOTER  = 56
+    const FRAME_W = 420
+    const FRAME_H = 320
+    const PAD     = 14
+    const FOOTER  = 60
     const STRIP_W = FRAME_W + PAD * 2
     const STRIP_H = PAD + (FRAME_H + PAD) * layout + FOOTER
 
@@ -157,6 +157,28 @@ export default function PhotoboothPage() {
       shots.slice(0, layout).map(shot => loadImage(shot.dataUrl))
     )
 
+    // ── helper: draw image with object-fit: cover (center crop) ──
+    function drawCover(ctx, img, x, y, w, h) {
+      const imgRatio   = img.naturalWidth / img.naturalHeight
+      const frameRatio = w / h
+      let sx, sy, sw, sh
+
+      if (imgRatio > frameRatio) {
+        // image is wider than frame → crop sides
+        sh = img.naturalHeight
+        sw = sh * frameRatio
+        sx = (img.naturalWidth - sw) / 2
+        sy = 0
+      } else {
+        // image is taller than frame → crop top/bottom
+        sw = img.naturalWidth
+        sh = sw / frameRatio
+        sx = 0
+        sy = (img.naturalHeight - sh) / 2
+      }
+      ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h)
+    }
+
     // draw each frame
     for (let i = 0; i < layout; i++) {
       const img = images[i]
@@ -165,26 +187,35 @@ export default function PhotoboothPage() {
       const x = PAD
       const y = PAD + i * (FRAME_H + PAD)
 
+      // clip to frame so image doesn't bleed outside
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(x, y, FRAME_W, FRAME_H)
+      ctx.clip()
+
       // frame background
       ctx.fillStyle = '#2c1f2e'
       ctx.fillRect(x, y, FRAME_W, FRAME_H)
 
-      // apply filter then draw image
+      // apply filter
       const shot = shots[i]
       const f    = FILTERS.find(f => f.id === shot.filterId)
       ctx.filter  = (f && f.css !== 'none') ? f.css : 'none'
-      ctx.drawImage(img, x, y, FRAME_W, FRAME_H)
-      ctx.filter  = 'none'
 
-      // frame border
+      // draw with cover crop — no stretching!
+      drawCover(ctx, img, x, y, FRAME_W, FRAME_H)
+      ctx.filter = 'none'
+      ctx.restore()
+
+      // frame border on top
       ctx.strokeStyle = 'rgba(244,167,185,0.3)'
       ctx.lineWidth   = 1
       ctx.strokeRect(x, y, FRAME_W, FRAME_H)
     }
 
     // footer
-    const footerY = STRIP_H - FOOTER + 16
-    ctx.fillStyle = 'rgba(244,167,185,0.8)'
+    const footerY = STRIP_H - FOOTER + 18
+    ctx.fillStyle = 'rgba(244,167,185,0.85)'
     ctx.font      = 'italic 18px Georgia, serif'
     ctx.textAlign = 'center'
     ctx.fillText("Deidree's Album ♡", STRIP_W / 2, footerY)
