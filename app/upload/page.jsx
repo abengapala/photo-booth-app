@@ -6,18 +6,41 @@ import imageCompression from 'browser-image-compression'
 
 // ── Filters ───────────────────────────────────────────────────
 const FILTERS = [
-  { id: 'normal',   label: '✨ Normal',  css: 'none' },
-  { id: 'soft',     label: '🌸 Soft',    css: 'brightness(1.1) saturate(0.85) contrast(0.92)' },
-  { id: 'warm',     label: '🌅 Warm',    css: 'sepia(0.3) saturate(1.5) brightness(1.08) contrast(1.05)' },
-  { id: 'pink',     label: '🩷 Pink',    css: 'sepia(0.15) saturate(2) hue-rotate(300deg) brightness(1.08)' },
-  { id: 'vintage',  label: '📷 Vintage', css: 'sepia(0.55) contrast(1.15) brightness(0.92) saturate(0.8)' },
-  { id: 'retro',    label: '🎞 Retro',   css: 'sepia(0.4) hue-rotate(15deg) saturate(1.6) contrast(1.15)' },
-  { id: 'bw',       label: '🖤 B&W',     css: 'grayscale(1) contrast(1.15) brightness(1.05)' },
-  { id: 'dramatic', label: '🎭 Drama',   css: 'grayscale(0.3) contrast(1.4) brightness(0.9) saturate(1.3)' },
-  { id: 'lomo',     label: '🔴 Lomo',    css: 'saturate(1.8) contrast(1.3) brightness(0.85)' },
-  { id: 'cold',     label: '🧊 Cold',    css: 'saturate(0.7) hue-rotate(195deg) brightness(1.1)' },
-  { id: 'golden',   label: '✨ Golden',  css: 'sepia(0.4) saturate(1.6) brightness(1.12) hue-rotate(340deg)' },
-  { id: 'dreamy',   label: '💫 Dreamy',  css: 'brightness(1.12) saturate(0.75) contrast(0.88)' },
+  { id: 'normal',   label: '✨ Normal',  css: 'none',
+    matrix: null },
+  { id: 'soft',     label: '🌸 Soft',
+    css: 'brightness(1.1) saturate(0.85) contrast(0.92)',
+    matrix: [1.05,0,0,0,0.02, 0,0.88,0,0,0.02, 0,0,0.88,0,0.02, 0,0,0,1,0] },
+  { id: 'warm',     label: '🌅 Warm',
+    css: 'sepia(0.3) saturate(1.5) brightness(1.08) contrast(1.05)',
+    matrix: [1.2,0.1,0,0,0.05, 0,1.0,0,0,0.02, 0,0,0.7,0,-0.05, 0,0,0,1,0] },
+  { id: 'pink',     label: '🩷 Pink',
+    css: 'sepia(0.15) saturate(2) hue-rotate(300deg) brightness(1.08)',
+    matrix: [1.3,0.1,0.2,0,0, 0,0.8,0.1,0,0, 0.1,0,0.9,0,0, 0,0,0,1,0] },
+  { id: 'vintage',  label: '📷 Vintage',
+    css: 'sepia(0.55) contrast(1.15) brightness(0.92) saturate(0.8)',
+    matrix: [0.9,0.2,0.05,0,0, 0.05,0.75,0.05,0,0, 0,0.1,0.5,0,0, 0,0,0,1,0] },
+  { id: 'retro',    label: '🎞 Retro',
+    css: 'sepia(0.4) hue-rotate(15deg) saturate(1.6) contrast(1.15)',
+    matrix: [1.1,0.15,0,0,0, 0,0.95,0.1,0,0, 0,0.05,0.7,0,0, 0,0,0,1,0] },
+  { id: 'bw',       label: '🖤 B&W',
+    css: 'grayscale(1) contrast(1.15) brightness(1.05)',
+    matrix: [0.33,0.33,0.33,0,0, 0.33,0.33,0.33,0,0, 0.33,0.33,0.33,0,0, 0,0,0,1,0] },
+  { id: 'dramatic', label: '🎭 Drama',
+    css: 'grayscale(0.3) contrast(1.4) brightness(0.9) saturate(1.3)',
+    matrix: [0.8,0.1,0.1,0,-0.05, 0.05,1.1,0.05,0,-0.05, 0.05,0.05,0.8,0,-0.05, 0,0,0,1,0] },
+  { id: 'lomo',     label: '🔴 Lomo',
+    css: 'saturate(1.8) contrast(1.3) brightness(0.85)',
+    matrix: [1.3,0,0,0,-0.1, 0,1.1,0,0,-0.1, 0,0,0.8,0,-0.1, 0,0,0,1,0] },
+  { id: 'cold',     label: '🧊 Cold',
+    css: 'saturate(0.7) hue-rotate(195deg) brightness(1.1)',
+    matrix: [0.7,0.1,0.2,0,0.02, 0.05,0.8,0.15,0,0.02, 0.1,0.1,1.1,0,0.05, 0,0,0,1,0] },
+  { id: 'golden',   label: '✨ Golden',
+    css: 'sepia(0.4) saturate(1.6) brightness(1.12) hue-rotate(340deg)',
+    matrix: [1.25,0.15,0,0,0.05, 0.05,1.05,0,0,0.02, 0,0,0.6,0,-0.05, 0,0,0,1,0] },
+  { id: 'dreamy',   label: '💫 Dreamy',
+    css: 'brightness(1.12) saturate(0.75) contrast(0.88)',
+    matrix: [0.9,0.05,0.05,0,0.08, 0.05,0.9,0.05,0,0.08, 0.05,0.05,0.85,0,0.08, 0,0,0,1,0] },
 ]
 
 // ── Layouts ───────────────────────────────────────────────────
@@ -28,59 +51,60 @@ const LAYOUTS = [
   { id: 4, label: '4 Poses', count: 4 },
 ]
 
-// ── iOS-safe filter baking ────────────────────────────────────
-// ctx.filter doesn't work on iOS Safari canvas
-// Fix: draw video onto a hidden <img> via blob URL,
-// apply CSS filter to that img element, then draw img onto canvas
-async function bakeFilterToCanvas(videoEl, filterCss, mirror) {
-  const W = videoEl.videoWidth  || 640
-  const H = videoEl.videoHeight || 480
-
-  // Step 1: draw raw video to temp canvas
-  const tmp    = document.createElement('canvas')
-  tmp.width    = W
-  tmp.height   = H
-  const tmpCtx = tmp.getContext('2d')
-
-  if (mirror) {
-    tmpCtx.translate(W, 0)
-    tmpCtx.scale(-1, 1)
-  }
-  tmpCtx.drawImage(videoEl, 0, 0)
-  if (mirror) tmpCtx.setTransform(1, 0, 0, 1, 0, 0)
-
-  // Step 2: if no filter just return the dataUrl directly
-  if (!filterCss || filterCss === 'none') {
-    return tmp.toDataURL('image/jpeg', 0.92)
-  }
-
-  // Step 3: convert canvas to blob URL
-  const blob   = await new Promise(res => tmp.toBlob(res, 'image/jpeg', 0.92))
-  const blobUrl = URL.createObjectURL(blob)
-
-  // Step 4: load into an img element
-  const img = await new Promise((res, rej) => {
-    const i  = new Image()
-    i.onload  = () => res(i)
-    i.onerror = rej
-    i.src     = blobUrl
-  })
-
-  // Step 5: draw img onto final canvas WITH CSS filter applied via 2D ctx
+// ── Apply filter using SVG feColorMatrix (works on ALL browsers) ──
+// This is the most compatible way — works on iOS Safari, Android, Chrome, Firefox
+function applyMatrixFilter(srcCanvas, matrix) {
+  const W = srcCanvas.width
+  const H = srcCanvas.height
   const out    = document.createElement('canvas')
   out.width    = W
   out.height   = H
-  const outCtx = out.getContext('2d')
+  const ctx    = out.getContext('2d')
+  const src    = srcCanvas.getContext('2d').getImageData(0, 0, W, H)
+  const dst    = ctx.createImageData(W, H)
+  const d      = src.data
+  const o      = dst.data
+  const m      = matrix
 
-  // This is the key: put the filter on the img element style
-  // then draw it — works on all browsers including iOS Safari
-  img.style.filter = filterCss
-  outCtx.filter    = filterCss  // fallback for non-iOS
-  outCtx.drawImage(img, 0, 0, W, H)
-  outCtx.filter    = 'none'
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i+1], b = d[i+2], a = d[i+3]
+    o[i]   = clamp(m[0]*r + m[1]*g + m[2]*b + m[3]*a + m[4]*255)
+    o[i+1] = clamp(m[5]*r + m[6]*g + m[7]*b + m[8]*a + m[9]*255)
+    o[i+2] = clamp(m[10]*r + m[11]*g + m[12]*b + m[13]*a + m[14]*255)
+    o[i+3] = a
+  }
 
-  URL.revokeObjectURL(blobUrl)
-  return out.toDataURL('image/jpeg', 0.92)
+  ctx.putImageData(dst, 0, 0)
+  return out
+}
+
+function clamp(v) { return Math.min(255, Math.max(0, Math.round(v))) }
+
+// ── Capture frame from video with filter ──────────────────────
+function captureFrame(videoEl, filterObj, mirror) {
+  const W = videoEl.videoWidth  || 640
+  const H = videoEl.videoHeight || 480
+
+  // draw raw video to canvas
+  const raw    = document.createElement('canvas')
+  raw.width    = W
+  raw.height   = H
+  const rawCtx = raw.getContext('2d')
+
+  if (mirror) {
+    rawCtx.translate(W, 0)
+    rawCtx.scale(-1, 1)
+  }
+  rawCtx.drawImage(videoEl, 0, 0)
+  if (mirror) rawCtx.setTransform(1, 0, 0, 1, 0, 0)
+
+  // apply filter via pixel manipulation — works on ALL browsers
+  if (filterObj && filterObj.matrix) {
+    const filtered = applyMatrixFilter(raw, filterObj.matrix)
+    return filtered.toDataURL('image/jpeg', 0.92)
+  }
+
+  return raw.toDataURL('image/jpeg', 0.92)
 }
 
 export default function PhotoboothPage() {
@@ -133,7 +157,7 @@ export default function PhotoboothPage() {
       await vid.play()
     } catch (err) {
       if (err.name === 'NotAllowedError') {
-        alert('📷 Camera blocked!\n\niPhone: Settings → Safari → Camera → Allow\n\nMake sure you\'re on the HTTPS link!')
+        alert('📷 Camera blocked!\n\niPhone: Settings → Safari → Camera → Allow!')
       } else if (err.name === 'NotFoundError') {
         alert('📷 No camera found!')
       } else if (err.name === 'NotReadableError') {
@@ -160,12 +184,11 @@ export default function PhotoboothPage() {
     return () => stopCamera()
   }, [step])
 
-  // ── Take one shot (iOS safe) ──────────────────────────────────
-  const takeShot = useCallback(async () => {
-    const filterCss = currentFilter?.css
-    const mirror    = facingMode === 'user'
-    // bakeFilterToCanvas works on ALL browsers including iOS Safari
-    const dataUrl   = await bakeFilterToCanvas(videoRef.current, filterCss, mirror)
+  // ── Take one shot ─────────────────────────────────────────────
+  const takeShot = useCallback(() => {
+    const mirror = facingMode === 'user'
+    // captureFrame uses pixel manipulation — works on ALL browsers including iOS
+    const dataUrl = captureFrame(videoRef.current, currentFilter, mirror)
     setFlashing(true)
     setTimeout(() => setFlashing(false), 200)
     return dataUrl
@@ -179,7 +202,7 @@ export default function PhotoboothPage() {
     }
     setCountdown('📸')
     await wait(300)
-    const dataUrl = await takeShot()
+    const dataUrl = takeShot()
     setCountdown(null)
     return dataUrl
   }
@@ -224,7 +247,6 @@ export default function PhotoboothPage() {
     ctx.lineWidth   = 2
     ctx.strokeRect(3, 3, STRIP_W - 6, STRIP_H - 6)
 
-    // load all shots — filter already baked in from takeShot!
     const images = await Promise.all(
       shots.slice(0, layout).map(shot => loadImage(shot.dataUrl))
     )
@@ -316,7 +338,6 @@ export default function PhotoboothPage() {
     return new Blob([arr], { type: mime })
   }
 
-  // ── Save ──────────────────────────────────────────────────────
   async function saveStrip() {
     setUploading(true)
     try {
@@ -357,7 +378,7 @@ export default function PhotoboothPage() {
           }),
         })
       } catch {
-        console.log('Telegram notify failed but save succeeded')
+        console.log('Telegram failed but save succeeded')
       }
 
       setSaved(true)
@@ -385,7 +406,6 @@ export default function PhotoboothPage() {
     router.push('/login')
   }
 
-  // ── RENDER ────────────────────────────────────────────────────
   return (
     <div style={s.page}>
       {flashing && <div style={s.flash} />}
@@ -398,7 +418,6 @@ export default function PhotoboothPage() {
         <button style={s.logout} onClick={handleLogout}>Sign out</button>
       </div>
 
-      {/* ── LAYOUT ── */}
       {step === 'layout' && (
         <div style={s.center}>
           <h2 style={s.stepTitle}>Choose Your Layout</h2>
@@ -426,7 +445,6 @@ export default function PhotoboothPage() {
         </div>
       )}
 
-      {/* ── CAMERA ── */}
       {step === 'camera' && (
         <div style={s.center}>
           <div style={s.camHeader}>
@@ -440,7 +458,6 @@ export default function PhotoboothPage() {
           </div>
 
           <div style={s.camWrap}>
-            {/* video preview — CSS filter for live preview on screen */}
             <video
               ref={videoRef}
               style={{
@@ -496,7 +513,6 @@ export default function PhotoboothPage() {
         </div>
       )}
 
-      {/* ── REVIEW ── */}
       {step === 'review' && (
         <div style={s.center}>
           <h2 style={s.stepTitle}>Review Your Shots</h2>
@@ -530,7 +546,6 @@ export default function PhotoboothPage() {
         </div>
       )}
 
-      {/* ── STRIP ── */}
       {step === 'strip' && (
         <div style={s.center}>
           <h2 style={s.stepTitle}>Your Photo Strip! 🎉</h2>
@@ -586,11 +601,7 @@ const s = {
     top: 0,
     zIndex: 10,
   },
-  logo: {
-    fontFamily: "'Playfair Display', serif",
-    fontSize: '20px',
-    color: '#fdf0f5',
-  },
+  logo: { fontFamily: "'Playfair Display', serif", fontSize: '20px', color: '#fdf0f5' },
   logoSub: { fontSize: '11px', color: '#9b8fa0', marginTop: 2 },
   logout: {
     background: 'none',
@@ -612,24 +623,9 @@ const s = {
     maxWidth: '600px',
     margin: '0 auto',
   },
-  stepTitle: {
-    fontFamily: "'Playfair Display', serif",
-    fontSize: '26px',
-    color: '#fdf0f5',
-    textAlign: 'center',
-  },
-  stepSub: {
-    fontSize: '14px',
-    color: '#9b8fa0',
-    textAlign: 'center',
-    marginTop: '-12px',
-  },
-  layoutGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
-    gap: '12px',
-    width: '100%',
-  },
+  stepTitle: { fontFamily: "'Playfair Display', serif", fontSize: '26px', color: '#fdf0f5', textAlign: 'center' },
+  stepSub: { fontSize: '14px', color: '#9b8fa0', textAlign: 'center', marginTop: '-12px' },
+  layoutGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', width: '100%' },
   layoutCard: {
     background: 'rgba(255,255,255,0.05)',
     border: '1.5px solid rgba(244,167,185,0.15)',
@@ -647,41 +643,11 @@ const s = {
     background: 'rgba(232,121,160,0.12)',
     boxShadow: '0 0 20px rgba(232,121,160,0.2)',
   },
-  layoutPreview: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '5px',
-    width: '52px',
-    minHeight: '80px',
-    justifyContent: 'center',
-  },
-  layoutFrame: {
-    width: '100%',
-    height: '18px',
-    borderRadius: '3px',
-    background: 'rgba(244,167,185,0.25)',
-    border: '1px solid rgba(244,167,185,0.2)',
-  },
-  layoutLabel: {
-    color: '#fdf0f5',
-    fontSize: '13px',
-    fontWeight: '500',
-    fontFamily: "'DM Sans', sans-serif",
-    textAlign: 'center',
-  },
-  layoutSub: {
-    color: '#9b8fa0',
-    fontSize: '11px',
-    fontFamily: "'DM Sans', sans-serif",
-    marginTop: '-6px',
-  },
-  camHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    gap: '12px',
-  },
+  layoutPreview: { display: 'flex', flexDirection: 'column', gap: '5px', width: '52px', minHeight: '80px', justifyContent: 'center' },
+  layoutFrame: { width: '100%', height: '18px', borderRadius: '3px', background: 'rgba(244,167,185,0.25)', border: '1px solid rgba(244,167,185,0.2)' },
+  layoutLabel: { color: '#fdf0f5', fontSize: '13px', fontWeight: '500', fontFamily: "'DM Sans', sans-serif", textAlign: 'center' },
+  layoutSub: { color: '#9b8fa0', fontSize: '11px', fontFamily: "'DM Sans', sans-serif", marginTop: '-6px' },
+  camHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '12px' },
   switchCamBtn: {
     background: 'rgba(255,255,255,0.08)',
     border: '1.5px solid rgba(244,167,185,0.25)',
@@ -706,34 +672,19 @@ const s = {
     background: '#0f0a14',
     border: '2px solid rgba(244,167,185,0.2)',
   },
-  video: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-    display: 'block',
-    transition: 'filter 0.2s',
-  },
+  video: { width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'filter 0.2s' },
   countdown: {
-    position: 'absolute',
-    inset: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '100px',
-    color: '#fff',
+    position: 'absolute', inset: 0,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: '100px', color: '#fff',
     textShadow: '0 2px 24px rgba(0,0,0,0.6)',
     background: 'rgba(0,0,0,0.3)',
     fontFamily: "'Playfair Display', serif",
     pointerEvents: 'none',
   },
   filterRow: {
-    display: 'flex',
-    gap: '8px',
-    overflowX: 'auto',
-    width: '100%',
-    paddingBottom: '6px',
-    scrollbarWidth: 'none',
-    WebkitOverflowScrolling: 'touch',
+    display: 'flex', gap: '8px', overflowX: 'auto', width: '100%',
+    paddingBottom: '6px', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch',
   },
   filterBtn: {
     background: 'rgba(255,255,255,0.06)',
@@ -755,138 +706,71 @@ const s = {
     color: '#fff',
     fontWeight: '500',
   },
-  shotProgress: {
-    display: 'flex',
-    gap: '10px',
-    justifyContent: 'center',
-  },
+  shotProgress: { display: 'flex', gap: '10px', justifyContent: 'center' },
   shotThumb: {
-    width: '52px',
-    height: '52px',
-    borderRadius: '10px',
+    width: '52px', height: '52px', borderRadius: '10px',
     border: '2px solid rgba(244,167,185,0.2)',
     background: '#2c1f2e',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',
   },
-  shotThumbActive: {
-    border: '2px solid #e879a0',
-    boxShadow: '0 0 12px rgba(232,121,160,0.4)',
-  },
-  shotThumbDone: {
-    border: '2px solid rgba(244,167,185,0.5)',
-  },
-  shotThumbImg: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-  },
-  reviewGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: '12px',
-    width: '100%',
-  },
+  shotThumbActive: { border: '2px solid #e879a0', boxShadow: '0 0 12px rgba(232,121,160,0.4)' },
+  shotThumbDone:   { border: '2px solid rgba(244,167,185,0.5)' },
+  shotThumbImg:    { width: '100%', height: '100%', objectFit: 'cover' },
+  reviewGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', width: '100%' },
   reviewFrame: {
-    borderRadius: '14px',
-    overflow: 'hidden',
+    borderRadius: '14px', overflow: 'hidden',
     background: '#2c1f2e',
     border: '1px solid rgba(244,167,185,0.15)',
-    display: 'flex',
-    flexDirection: 'column',
+    display: 'flex', flexDirection: 'column',
   },
-  reviewImg: {
-    width: '100%',
-    aspectRatio: '4/3',
-    objectFit: 'cover',
-    display: 'block',
-  },
+  reviewImg: { width: '100%', aspectRatio: '4/3', objectFit: 'cover', display: 'block' },
   reviewOverlay: { display: 'none' },
   retakeBtn: {
-    width: '100%',
-    background: 'rgba(232,121,160,0.85)',
-    color: '#fff',
-    border: 'none',
-    padding: '9px 8px',
-    fontSize: '13px',
-    fontFamily: "'DM Sans', sans-serif",
-    cursor: 'pointer',
-    fontWeight: '500',
-    WebkitTapHighlightColor: 'transparent',
-    touchAction: 'manipulation',
+    width: '100%', background: 'rgba(232,121,160,0.85)', color: '#fff',
+    border: 'none', padding: '9px 8px', fontSize: '13px',
+    fontFamily: "'DM Sans', sans-serif", cursor: 'pointer', fontWeight: '500',
+    WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
   },
   reviewLabel: {
-    textAlign: 'center',
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: '11px',
-    fontFamily: "'DM Sans', sans-serif",
-    padding: '4px 0',
-    background: '#1a0f1e',
+    textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: '11px',
+    fontFamily: "'DM Sans', sans-serif", padding: '4px 0', background: '#1a0f1e',
   },
   stripPreview: {
-    width: '100%',
-    maxWidth: '340px',
-    height: 'auto',
+    width: '100%', maxWidth: '340px', height: 'auto',
     borderRadius: '16px',
     boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
     border: '1px solid rgba(244,167,185,0.2)',
   },
   captionInput: {
-    padding: '14px 16px',
-    borderRadius: '12px',
+    padding: '14px 16px', borderRadius: '12px',
     border: '1.5px solid rgba(244,167,185,0.2)',
-    fontSize: '16px',
-    fontFamily: "'DM Sans', sans-serif",
-    outline: 'none',
-    background: 'rgba(255,255,255,0.06)',
-    color: '#fff',
-    width: '100%',
+    fontSize: '16px', fontFamily: "'DM Sans', sans-serif",
+    outline: 'none', background: 'rgba(255,255,255,0.06)',
+    color: '#fff', width: '100%',
   },
-  btnRow: {
-    display: 'flex',
-    gap: '10px',
-    width: '100%',
-    flexWrap: 'wrap',
-  },
+  btnRow: { display: 'flex', gap: '10px', width: '100%', flexWrap: 'wrap' },
   btnPink: {
     flex: 1,
     background: 'linear-gradient(135deg, #f4a7b9, #e879a0)',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '14px',
-    padding: '16px 12px',
-    fontSize: '15px',
-    fontFamily: "'DM Sans', sans-serif",
-    fontWeight: '500',
+    color: '#fff', border: 'none', borderRadius: '14px',
+    padding: '16px 12px', fontSize: '15px',
+    fontFamily: "'DM Sans', sans-serif", fontWeight: '500',
     cursor: 'pointer',
-    WebkitTapHighlightColor: 'transparent',
-    touchAction: 'manipulation',
+    WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
     boxShadow: '0 4px 16px rgba(232,121,160,0.3)',
   },
   btnOutline: {
-    flex: 1,
-    background: 'none',
-    color: '#f4a7b9',
+    flex: 1, background: 'none', color: '#f4a7b9',
     border: '1.5px solid rgba(244,167,185,0.3)',
-    borderRadius: '14px',
-    padding: '16px 12px',
-    fontSize: '15px',
-    fontFamily: "'DM Sans', sans-serif",
-    cursor: 'pointer',
-    WebkitTapHighlightColor: 'transparent',
-    touchAction: 'manipulation',
+    borderRadius: '14px', padding: '16px 12px', fontSize: '15px',
+    fontFamily: "'DM Sans', sans-serif", cursor: 'pointer',
+    WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
   },
   successMsg: {
-    textAlign: 'center',
-    color: '#e879a0',
+    textAlign: 'center', color: '#e879a0',
     background: 'rgba(232,121,160,0.1)',
-    padding: '14px',
-    borderRadius: '12px',
-    fontSize: '14px',
-    fontWeight: '500',
-    border: '1px solid rgba(232,121,160,0.2)',
-    width: '100%',
+    padding: '14px', borderRadius: '12px', fontSize: '14px',
+    fontWeight: '500', border: '1px solid rgba(232,121,160,0.2)', width: '100%',
   },
 }
