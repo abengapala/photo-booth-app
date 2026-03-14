@@ -7,11 +7,11 @@ export default function DashboardPage() {
   const router   = useRouter()
   const supabase = createClient()
 
-  const [photos,  setPhotos]  = useState([])
-  const [loading, setLoading] = useState(true)
-  const [view,    setView]    = useState('grid')   // 'grid' | 'strip'
-  const [selected,setSelected]= useState(null)     // lightbox photo
-  const [deleting,setDeleting]= useState(null)
+  const [photos,   setPhotos]   = useState([])
+  const [loading,  setLoading]  = useState(true)
+  const [view,     setView]     = useState('grid')  // 'grid' | 'strip'
+  const [selected, setSelected] = useState(null)
+  const [deleting, setDeleting] = useState(null)
 
   // ── Auth guard ───────────────────────────────────────────────
   useEffect(() => {
@@ -32,34 +32,19 @@ export default function DashboardPage() {
     setLoading(false)
   }
 
-  // ── Delete a photo ───────────────────────────────────────────
+  // ── Delete ───────────────────────────────────────────────────
   async function deletePhoto(photo) {
     setDeleting(photo.id)
     try {
-      // extract storage path correctly from full supabase URL
       const urlParts = photo.url.split('/storage/v1/object/public/photos/')
       const filePath = urlParts[1]
-  
       if (filePath) {
-        const { error: storageError } = await supabase.storage
-          .from('photos')
-          .remove([filePath])
-        if (storageError) console.error('Storage delete error:', storageError)
+        await supabase.storage.from('photos').remove([filePath])
       }
-  
-      // delete from database
-      const { error: dbError } = await supabase
-        .from('photos')
-        .delete()
-        .eq('id', photo.id)
-      if (dbError) console.error('DB delete error:', dbError)
-  
-      // update UI
+      await supabase.from('photos').delete().eq('id', photo.id)
       setPhotos(prev => prev.filter(p => p.id !== photo.id))
       if (selected?.id === photo.id) setSelected(null)
-  
     } catch (e) {
-      console.error('Delete failed:', e)
       alert('Delete failed: ' + e.message)
     }
     setDeleting(null)
@@ -70,10 +55,17 @@ export default function DashboardPage() {
     router.push('/login')
   }
 
-  // ── Format date ──────────────────────────────────────────────
   function formatDate(str) {
-    return new Date(str).toLocaleDateString('en-US', {
-      month: 'long', day: 'numeric', year: 'numeric'
+    return new Date(str).toLocaleDateString('en-PH', {
+      month: 'long', day: 'numeric', year: 'numeric',
+      timeZone: 'Asia/Manila',
+    })
+  }
+
+  function formatTime(str) {
+    return new Date(str).toLocaleTimeString('en-PH', {
+      hour: '2-digit', minute: '2-digit',
+      timeZone: 'Asia/Manila',
     })
   }
 
@@ -87,16 +79,22 @@ export default function DashboardPage() {
           <div style={s.lightboxCard} onClick={e => e.stopPropagation()}>
             <img src={selected.url} style={s.lightboxImg} alt="" />
             <div style={s.lightboxInfo}>
-              <div>
+              <div style={{ flex: 1 }}>
                 {selected.caption && (
                   <p style={s.lightboxCaption}>"{selected.caption}"</p>
                 )}
-                <p style={s.lightboxDate}>📅 {formatDate(selected.created_at)}</p>
+                <p style={s.lightboxDate}>
+                  📅 {formatDate(selected.created_at)} · {formatTime(selected.created_at)}
+                </p>
               </div>
               <div style={s.lightboxActions}>
-                <a href={selected.url} download target="_blank" style={s.btnDownload}>
-                  ⬇ Download
-                </a>
+                <a
+                  href={selected.url}
+                  download
+                  target="_blank"
+                  rel="noreferrer"
+                  style={s.btnDownload}
+                >⬇ Download</a>
                 <button
                   style={s.btnDelete}
                   onClick={() => deletePhoto(selected)}
@@ -116,7 +114,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div style={s.header}>
         <div>
-          <h1 style={s.logo}>💕 Our Album</h1>
+          <h1 style={s.logo}>💕 Deidree's Album</h1>
           <p style={s.logoSub}>{photos.length} memories so far ♡</p>
         </div>
         <div style={s.headerRight}>
@@ -158,8 +156,9 @@ export default function DashboardPage() {
               style={s.gridItem}
               onClick={() => setSelected(photo)}
             >
+              {/* full image — no crop */}
               <img src={photo.url} style={s.gridImg} alt="" />
-              <div style={s.gridOverlay}>
+              <div style={s.gridFooter}>
                 {photo.caption && (
                   <p style={s.gridCaption}>"{photo.caption}"</p>
                 )}
@@ -175,15 +174,13 @@ export default function DashboardPage() {
         <div style={s.stripPage}>
           {chunkArray(photos, 4).map((group, gi) => (
             <div key={gi} style={s.stripCard}>
-              {/* film strip top holes */}
+              {/* film holes top */}
               <div style={s.filmHoles}>
-                {[...Array(8)].map((_, i) => (
-                  <div key={i} style={s.filmHole} />
-                ))}
+                {[...Array(8)].map((_, i) => <div key={i} style={s.filmHole} />)}
               </div>
 
               <div style={s.stripFrames}>
-                {group.map((photo, i) => (
+                {group.map((photo) => (
                   <div
                     key={photo.id}
                     style={s.stripFrame}
@@ -195,37 +192,28 @@ export default function DashboardPage() {
                     )}
                   </div>
                 ))}
-                {/* fill empty slots */}
                 {[...Array(4 - group.length)].map((_, i) => (
                   <div key={`empty-${i}`} style={s.stripFrameEmpty} />
                 ))}
               </div>
 
-              {/* film strip bottom holes */}
+              {/* film holes bottom */}
               <div style={s.filmHoles}>
-                {[...Array(8)].map((_, i) => (
-                  <div key={i} style={s.filmHole} />
-                ))}
+                {[...Array(8)].map((_, i) => <div key={i} style={s.filmHole} />)}
               </div>
 
-              <p style={s.stripDate}>
-                {formatDate(group[0].created_at)}
-              </p>
+              <p style={s.stripDate}>{formatDate(group[0].created_at)}</p>
             </div>
           ))}
         </div>
       )}
-
     </div>
   )
 }
 
-// split array into chunks of n
 function chunkArray(arr, n) {
   const chunks = []
-  for (let i = 0; i < arr.length; i += n) {
-    chunks.push(arr.slice(i, i + n))
-  }
+  for (let i = 0; i < arr.length; i += n) chunks.push(arr.slice(i, i + n))
   return chunks
 }
 
@@ -240,7 +228,7 @@ const s = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '24px 32px',
+    padding: '16px 20px',
     borderBottom: '1px solid rgba(244,167,185,0.15)',
     background: 'rgba(0,0,0,0.2)',
     backdropFilter: 'blur(8px)',
@@ -248,15 +236,15 @@ const s = {
     top: 0,
     zIndex: 10,
     flexWrap: 'wrap',
-    gap: '12px',
+    gap: '10px',
   },
   logo: {
     fontFamily: "'Playfair Display', serif",
-    fontSize: '24px',
+    fontSize: '20px',
     color: '#fdf0f5',
   },
   logoSub: {
-    fontSize: '12px',
+    fontSize: '11px',
     color: '#9b8fa0',
     marginTop: 2,
   },
@@ -270,11 +258,12 @@ const s = {
     background: 'rgba(255,255,255,0.07)',
     border: '1px solid rgba(244,167,185,0.2)',
     borderRadius: '10px',
-    padding: '8px 16px',
+    padding: '8px 14px',
     color: '#9b8fa0',
     cursor: 'pointer',
     fontSize: '13px',
     fontFamily: "'DM Sans', sans-serif",
+    WebkitTapHighlightColor: 'transparent',
   },
   viewBtnActive: {
     background: 'linear-gradient(135deg, #f4a7b9, #e879a0)',
@@ -285,11 +274,12 @@ const s = {
     background: 'none',
     border: '1px solid rgba(244,167,185,0.3)',
     borderRadius: '10px',
-    padding: '8px 16px',
+    padding: '8px 14px',
     color: '#f4a7b9',
     cursor: 'pointer',
     fontSize: '13px',
     fontFamily: "'DM Sans', sans-serif",
+    WebkitTapHighlightColor: 'transparent',
   },
   emptyState: {
     display: 'flex',
@@ -310,57 +300,56 @@ const s = {
     color: '#9b8fa0',
   },
 
-  // Grid
+  // ── Grid ──────────────────────────────────────────────────────
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
     gap: '16px',
-    padding: '32px',
+    padding: '24px 16px',
     maxWidth: '1200px',
     margin: '0 auto',
+    alignItems: 'start', // key! stops cards stretching to equal height
   },
   gridItem: {
-    position: 'relative',
     borderRadius: '16px',
     overflow: 'hidden',
     cursor: 'pointer',
-    aspectRatio: '1',
     background: '#2c1f2e',
+    border: '1px solid rgba(244,167,185,0.1)',
     transition: 'transform 0.2s',
+    // NO fixed height or aspectRatio — lets strip show full height
   },
   gridImg: {
     width: '100%',
-    height: '100%',
-    objectFit: 'cover',
+    height: 'auto',       // full image height — no crop!
+    objectFit: 'contain', // show entire strip
     display: 'block',
-    transition: 'transform 0.3s',
+    background: '#1a0f1e',
   },
-  gridOverlay: {
-    position: 'absolute',
-    bottom: 0, left: 0, right: 0,
-    background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
-    padding: '20px 14px 14px',
-    opacity: 0,
-    transition: 'opacity 0.2s',
+  gridFooter: {
+    padding: '10px 12px',
+    background: '#2c1f2e',
   },
   gridCaption: {
-    color: '#fff',
-    fontSize: '13px',
+    color: '#fdf0f5',
+    fontSize: '12px',
     fontStyle: 'italic',
     marginBottom: '4px',
+    fontFamily: "'Playfair Display', serif",
   },
   gridDate: {
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.4)',
     fontSize: '11px',
+    fontFamily: "'DM Sans', sans-serif",
   },
 
-  // Strip
+  // ── Strip view ────────────────────────────────────────────────
   stripPage: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     gap: '40px',
-    padding: '40px 20px',
+    padding: '32px 16px',
   },
   stripCard: {
     background: '#1a1025',
@@ -387,21 +376,20 @@ const s = {
   stripFrames: {
     display: 'grid',
     gridTemplateColumns: 'repeat(4, 1fr)',
-    gap: '4px',
-    padding: '4px',
+    gap: '3px',
+    padding: '3px',
     background: '#111',
   },
   stripFrame: {
     cursor: 'pointer',
     position: 'relative',
-    aspectRatio: '3/4',
     overflow: 'hidden',
     background: '#2c1f2e',
   },
   stripImg: {
     width: '100%',
-    height: '100%',
-    objectFit: 'cover',
+    height: 'auto',       // show full strip image
+    objectFit: 'contain',
     display: 'block',
   },
   stripCaption: {
@@ -415,9 +403,9 @@ const s = {
     fontStyle: 'italic',
   },
   stripFrameEmpty: {
-    aspectRatio: '3/4',
     background: '#1a1025',
     border: '1px dashed #2c2c2c',
+    minHeight: '80px',
   },
   stripDate: {
     textAlign: 'center',
@@ -429,38 +417,41 @@ const s = {
     letterSpacing: '0.05em',
   },
 
-  // Lightbox
+  // ── Lightbox ──────────────────────────────────────────────────
   lightboxBg: {
     position: 'fixed',
     inset: 0,
-    background: 'rgba(0,0,0,0.85)',
+    background: 'rgba(0,0,0,0.88)',
     zIndex: 1000,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '20px',
+    padding: '16px',
     backdropFilter: 'blur(6px)',
+    overflowY: 'auto',
   },
   lightboxCard: {
     background: '#2c1f2e',
     borderRadius: '20px',
     overflow: 'hidden',
-    maxWidth: '600px',
     width: '100%',
+    maxWidth: '520px',
     boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
     border: '1px solid rgba(244,167,185,0.15)',
   },
   lightboxImg: {
     width: '100%',
-    maxHeight: '420px',
-    objectFit: 'cover',
+    height: 'auto',       // show full strip in lightbox too!
+    objectFit: 'contain',
     display: 'block',
+    background: '#1a0f1e',
+    maxHeight: '70vh',
   },
   lightboxInfo: {
-    padding: '20px 24px',
+    padding: '16px 20px',
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flexWrap: 'wrap',
     gap: '12px',
   },
@@ -468,45 +459,53 @@ const s = {
     fontFamily: "'Playfair Display', serif",
     fontStyle: 'italic',
     color: '#fdf0f5',
-    fontSize: '16px',
+    fontSize: '15px',
     marginBottom: '6px',
   },
   lightboxDate: {
     color: '#9b8fa0',
-    fontSize: '13px',
+    fontSize: '12px',
+    fontFamily: "'DM Sans', sans-serif",
   },
   lightboxActions: {
     display: 'flex',
     gap: '8px',
     flexWrap: 'wrap',
+    width: '100%',
   },
   btnDownload: {
+    flex: 1,
+    textAlign: 'center',
     background: 'rgba(255,255,255,0.08)',
     color: '#fdf0f5',
     border: '1px solid rgba(255,255,255,0.15)',
     borderRadius: '10px',
-    padding: '8px 14px',
+    padding: '10px 12px',
     fontSize: '13px',
     cursor: 'pointer',
     textDecoration: 'none',
     fontFamily: "'DM Sans', sans-serif",
   },
   btnDelete: {
+    flex: 1,
+    textAlign: 'center',
     background: 'rgba(220,50,50,0.15)',
     color: '#ff8080',
     border: '1px solid rgba(220,50,50,0.3)',
     borderRadius: '10px',
-    padding: '8px 14px',
+    padding: '10px 12px',
     fontSize: '13px',
     cursor: 'pointer',
     fontFamily: "'DM Sans', sans-serif",
   },
   btnClose: {
-    background: 'rgba(255,255,255,0.08)',
+    flex: 1,
+    textAlign: 'center',
+    background: 'rgba(255,255,255,0.06)',
     color: '#9b8fa0',
     border: '1px solid rgba(255,255,255,0.1)',
     borderRadius: '10px',
-    padding: '8px 14px',
+    padding: '10px 12px',
     fontSize: '13px',
     cursor: 'pointer',
     fontFamily: "'DM Sans', sans-serif",

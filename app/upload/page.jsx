@@ -28,32 +28,28 @@ const LAYOUTS = [
   { id: 4, label: '4 Poses', count: 4 },
 ]
 
-// ── Steps ─────────────────────────────────────────────────────
-// 'layout' → 'camera' → 'review' → 'strip'
-
 export default function PhotoboothPage() {
   const router   = useRouter()
   const supabase = createClient()
 
-  // auth guard
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (!data.session) router.push('/login')
     })
   }, [])
 
-  const [step,      setStep]      = useState('layout')
-  const [layout,    setLayout]    = useState(4)
-  const [filter,    setFilter]    = useState('normal')
-  const [shots,     setShots]     = useState([])
-  const [current,   setCurrent]   = useState(0)
-  const [countdown, setCountdown] = useState(null)
-  const [flashing,  setFlashing]  = useState(false)
-  const [stripUrl,  setStripUrl]  = useState(null)
-  const [caption,   setCaption]   = useState('')
-  const [uploading, setUploading] = useState(false)
-  const [saved,     setSaved]     = useState(false)
-  const [facingMode,setFacingMode]= useState('user') // 'user' = front, 'environment' = back
+  const [step,       setStep]       = useState('layout')
+  const [layout,     setLayout]     = useState(4)
+  const [filter,     setFilter]     = useState('normal')
+  const [shots,      setShots]      = useState([])
+  const [current,    setCurrent]    = useState(0)
+  const [countdown,  setCountdown]  = useState(null)
+  const [flashing,   setFlashing]   = useState(false)
+  const [stripUrl,   setStripUrl]   = useState(null)
+  const [caption,    setCaption]    = useState('')
+  const [uploading,  setUploading]  = useState(false)
+  const [saved,      setSaved]      = useState(false)
+  const [facingMode, setFacingMode] = useState('user')
 
   const videoRef  = useRef(null)
   const canvasRef = useRef(null)
@@ -61,19 +57,43 @@ export default function PhotoboothPage() {
 
   const currentFilter = FILTERS.find(f => f.id === filter)
 
-  // ── Camera ───────────────────────────────────────────────────
-  async function startCamera(facing = facingMode) {
+  // ── Camera (iOS Safari fixed) ─────────────────────────────────
+  async function startCamera(facing) {
+    const mode = facing ?? facingMode
     try {
       // stop any existing stream first
       streamRef.current?.getTracks().forEach(t => t.stop())
+
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing, width: 640, height: 480 }
+        video: { facingMode: { ideal: mode } },
+        audio: false,
       })
-      streamRef.current          = stream
-      videoRef.current.srcObject = stream
-      await videoRef.current.play()
-    } catch {
-      alert('No camera found 📷 — please allow camera permission!')
+
+      streamRef.current = stream
+
+      const vid = videoRef.current
+      // set attributes BEFORE srcObject — required for iOS Safari
+      vid.setAttribute('autoplay',    '')
+      vid.setAttribute('muted',       '')
+      vid.setAttribute('playsinline', '')
+      vid.muted    = true
+      vid.srcObject = stream
+
+      // small delay before play() for iOS
+      await new Promise(r => setTimeout(r, 150))
+      await vid.play()
+
+    } catch (err) {
+      console.error('Camera error:', err)
+      if (err.name === 'NotAllowedError') {
+        alert('📷 Camera blocked!\n\niPhone: Settings → Safari → Camera → Allow\n\nMake sure you\'re using the HTTPS link!')
+      } else if (err.name === 'NotFoundError') {
+        alert('📷 No camera found on this device!')
+      } else if (err.name === 'NotReadableError') {
+        alert('📷 Camera in use by another app. Close other apps and try again!')
+      } else {
+        alert('📷 Camera error: ' + err.message)
+      }
     }
   }
 
@@ -103,28 +123,24 @@ export default function PhotoboothPage() {
     canvas.height = H
     const ctx = canvas.getContext('2d')
 
-    // apply filter FIRST before any transform
     const filterCss = currentFilter?.css
     ctx.filter = (filterCss && filterCss !== 'none') ? filterCss : 'none'
 
     if (facingMode === 'user') {
-      // front cam — mirror
       ctx.save()
       ctx.translate(W, 0)
       ctx.scale(-1, 1)
       ctx.drawImage(video, 0, 0)
       ctx.restore()
     } else {
-      // back cam — no mirror
       ctx.drawImage(video, 0, 0)
     }
 
-    // reset filter after drawing
     ctx.filter = 'none'
     return canvas.toDataURL('image/jpeg', 0.92)
   }, [filter, currentFilter, facingMode])
 
-  // ── Auto countdown + capture ──────────────────────────────────
+  // ── Countdown + capture ───────────────────────────────────────
   async function captureWithCountdown() {
     for (let c = 3; c >= 1; c--) {
       setCountdown(c)
@@ -140,7 +156,7 @@ export default function PhotoboothPage() {
   }
 
   async function handleCapture() {
-    const dataUrl = await captureWithCountdown()
+    const dataUrl  = await captureWithCountdown()
     const newShots = [...shots]
     newShots[current] = { dataUrl, filterId: filter }
     setShots(newShots)
@@ -156,7 +172,7 @@ export default function PhotoboothPage() {
     setStep('camera')
   }
 
-  // ── Generate strip on canvas ──────────────────────────────────
+  // ── Generate strip ────────────────────────────────────────────
   async function generateStrip() {
     const FRAME_W = 420
     const FRAME_H = 320
@@ -170,34 +186,27 @@ export default function PhotoboothPage() {
     canvas.height = STRIP_H
     const ctx     = canvas.getContext('2d')
 
-    // background
     ctx.fillStyle = '#1a0f1e'
     ctx.fillRect(0, 0, STRIP_W, STRIP_H)
 
-    // outer border
     ctx.strokeStyle = 'rgba(244,167,185,0.5)'
     ctx.lineWidth   = 2
     ctx.strokeRect(3, 3, STRIP_W - 6, STRIP_H - 6)
 
-    // load ALL images first in parallel
     const images = await Promise.all(
       shots.slice(0, layout).map(shot => loadImage(shot.dataUrl))
     )
 
-    // ── helper: draw image with object-fit: cover (center crop) ──
     function drawCover(ctx, img, x, y, w, h) {
       const imgRatio   = img.naturalWidth / img.naturalHeight
       const frameRatio = w / h
       let sx, sy, sw, sh
-
       if (imgRatio > frameRatio) {
-        // image is wider than frame → crop sides
         sh = img.naturalHeight
         sw = sh * frameRatio
         sx = (img.naturalWidth - sw) / 2
         sy = 0
       } else {
-        // image is taller than frame → crop top/bottom
         sw = img.naturalWidth
         sh = sw / frameRatio
         sx = 0
@@ -206,36 +215,30 @@ export default function PhotoboothPage() {
       ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h)
     }
 
-    // draw each frame
     for (let i = 0; i < layout; i++) {
       const img = images[i]
       if (!img) continue
-
       const x = PAD
       const y = PAD + i * (FRAME_H + PAD)
 
-      // clip to frame so image doesn't bleed outside
       ctx.save()
       ctx.beginPath()
       ctx.rect(x, y, FRAME_W, FRAME_H)
       ctx.clip()
 
-      // frame background
       ctx.fillStyle = '#2c1f2e'
       ctx.fillRect(x, y, FRAME_W, FRAME_H)
 
-      // filter already baked into the photo from takeShot — just draw it!
+      // filter already baked in from takeShot
       ctx.filter = 'none'
       drawCover(ctx, img, x, y, FRAME_W, FRAME_H)
       ctx.restore()
 
-      // frame border on top
       ctx.strokeStyle = 'rgba(244,167,185,0.3)'
       ctx.lineWidth   = 1
       ctx.strokeRect(x, y, FRAME_W, FRAME_H)
     }
 
-    // footer
     const footerY = STRIP_H - FOOTER + 18
     ctx.fillStyle = 'rgba(244,167,185,0.85)'
     ctx.font      = 'italic 18px Georgia, serif'
@@ -268,7 +271,6 @@ export default function PhotoboothPage() {
     setStep('strip')
   }
 
-  // ── Download strip ────────────────────────────────────────────
   function downloadStrip() {
     const a    = document.createElement('a')
     a.href     = stripUrl
@@ -276,17 +278,25 @@ export default function PhotoboothPage() {
     a.click()
   }
 
-  // ── Save to Supabase + notify Telegram ────────────────────────
+  // convert base64 dataURL → Blob
+  function dataURLtoBlob(dataUrl) {
+    const [header, base64] = dataUrl.split(',')
+    const mime    = header.match(/:(.*?);/)[1]
+    const binary  = atob(base64)
+    const arr     = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i)
+    return new Blob([arr], { type: mime })
+  }
+
+  // ── Save to Supabase + Telegram ───────────────────────────────
   async function saveStrip() {
     setUploading(true)
     try {
-      // convert dataUrl → blob directly (preserves filter)
       const blob = dataURLtoBlob(stripUrl)
 
-      // compress AFTER conversion so filter is preserved
       const compressed = await imageCompression(blob, {
-        maxSizeMB:        0.6,   // max 600 KB — good quality for a strip
-        maxWidthOrHeight: 1400,  // keep enough resolution
+        maxSizeMB:        0.6,
+        maxWidthOrHeight: 1400,
         useWebWorker:     true,
         fileType:         'image/jpeg',
         initialQuality:   0.85,
@@ -309,7 +319,6 @@ export default function PhotoboothPage() {
         created_at:  uploadedAt,
       })
 
-      // Telegram notify with the actual strip URL
       try {
         await fetch('/api/notify', {
           method:  'POST',
@@ -329,16 +338,6 @@ export default function PhotoboothPage() {
       alert('Save failed: ' + e.message)
     }
     setUploading(false)
-  }
-
-  // convert base64 dataURL → Blob
-  function dataURLtoBlob(dataUrl) {
-    const [header, base64] = dataUrl.split(',')
-    const mime    = header.match(/:(.*?);/)[1]
-    const binary  = atob(base64)
-    const arr     = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i)
-    return new Blob([arr], { type: mime })
   }
 
   function resetAll() {
@@ -372,7 +371,7 @@ export default function PhotoboothPage() {
         <button style={s.logout} onClick={handleLogout}>Sign out</button>
       </div>
 
-      {/* ── STEP 1: LAYOUT PICKER ── */}
+      {/* ── STEP 1: LAYOUT ── */}
       {step === 'layout' && (
         <div style={s.center}>
           <h2 style={s.stepTitle}>Choose Your Layout</h2>
@@ -408,7 +407,6 @@ export default function PhotoboothPage() {
               <h2 style={s.stepTitle}>Get Ready to Pose!</h2>
               <p style={s.stepSub}>Shot {current + 1} of {layout} 📸</p>
             </div>
-            {/* camera switch button */}
             <button style={s.switchCamBtn} onClick={switchCamera} disabled={countdown !== null}>
               🔄 Flip
             </button>
@@ -419,10 +417,12 @@ export default function PhotoboothPage() {
               ref={videoRef}
               style={{
                 ...s.video,
-                filter: currentFilter?.css || 'none',
+                filter:    currentFilter?.css || 'none',
                 transform: facingMode === 'user' ? 'scaleX(-1)' : 'scaleX(1)',
               }}
-              playsInline muted
+              playsInline
+              autoPlay
+              muted
             />
             {countdown !== null && (
               <div style={s.countdown}>{countdown}</div>
@@ -444,13 +444,13 @@ export default function PhotoboothPage() {
             ))}
           </div>
 
-          {/* shot thumbnails progress */}
+          {/* shot progress */}
           <div style={s.shotProgress}>
             {[...Array(layout)].map((_, i) => (
               <div key={i} style={{
                 ...s.shotThumb,
                 ...(i === current ? s.shotThumbActive : {}),
-                ...(shots[i] ? s.shotThumbDone : {}),
+                ...(shots[i]     ? s.shotThumbDone   : {}),
               }}>
                 {shots[i]
                   ? <img src={shots[i].dataUrl} style={s.shotThumbImg} alt="" />
@@ -516,9 +516,7 @@ export default function PhotoboothPage() {
 
           <div style={s.btnRow}>
             <button style={s.btnOutline} onClick={resetAll}>New Strip</button>
-            <button style={s.btnOutline} onClick={downloadStrip}>
-              ⬇️ Download
-            </button>
+            <button style={s.btnOutline} onClick={downloadStrip}>⬇️ Download</button>
             {!saved && (
               <button
                 style={{ ...s.btnPink, opacity: uploading ? 0.7 : 1 }}
@@ -603,8 +601,6 @@ const s = {
     textAlign: 'center',
     marginTop: '-12px',
   },
-
-  // layout picker
   layoutGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(4, 1fr)',
@@ -621,7 +617,6 @@ const s = {
     flexDirection: 'column',
     alignItems: 'center',
     gap: '10px',
-    transition: 'all 0.2s',
     WebkitTapHighlightColor: 'transparent',
   },
   layoutCardActive: {
@@ -657,8 +652,6 @@ const s = {
     fontFamily: "'DM Sans', sans-serif",
     marginTop: '-6px',
   },
-
-  // camera
   camHeader: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -710,15 +703,13 @@ const s = {
     fontFamily: "'Playfair Display', serif",
     pointerEvents: 'none',
   },
-
-  // filters
   filterRow: {
     display: 'flex',
     gap: '8px',
     overflowX: 'auto',
     width: '100%',
     paddingBottom: '6px',
-    scrollbarWidth: 'none', // hide scrollbar Firefox
+    scrollbarWidth: 'none',
     WebkitOverflowScrolling: 'touch',
   },
   filterBtn: {
@@ -741,8 +732,6 @@ const s = {
     color: '#fff',
     fontWeight: '500',
   },
-
-  // shot progress
   shotProgress: {
     display: 'flex',
     gap: '10px',
@@ -771,8 +760,6 @@ const s = {
     height: '100%',
     objectFit: 'cover',
   },
-
-  // review
   reviewGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, 1fr)',
@@ -817,17 +804,14 @@ const s = {
     padding: '4px 0',
     background: '#1a0f1e',
   },
-
-  // strip preview
   stripPreview: {
     width: '100%',
     maxWidth: '340px',
+    height: 'auto',         // show full strip!
     borderRadius: '16px',
     boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
     border: '1px solid rgba(244,167,185,0.2)',
   },
-
-  // shared
   captionInput: {
     padding: '14px 16px',
     borderRadius: '12px',
