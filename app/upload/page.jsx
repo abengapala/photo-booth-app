@@ -4,43 +4,64 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import imageCompression from 'browser-image-compression'
 
-// ── Filters ───────────────────────────────────────────────────
+// ── Filters — strong obvious effects ─────────────────────────
 const FILTERS = [
-  { id: 'normal',   label: '✨ Normal',  css: 'none',
-    matrix: null },
-  { id: 'soft',     label: '🌸 Soft',
-    css: 'brightness(1.1) saturate(0.85) contrast(0.92)',
-    matrix: [1.05,0,0,0,0.02, 0,0.88,0,0,0.02, 0,0,0.88,0,0.02, 0,0,0,1,0] },
-  { id: 'warm',     label: '🌅 Warm',
-    css: 'sepia(0.3) saturate(1.5) brightness(1.08) contrast(1.05)',
-    matrix: [1.2,0.1,0,0,0.05, 0,1.0,0,0,0.02, 0,0,0.7,0,-0.05, 0,0,0,1,0] },
-  { id: 'pink',     label: '🩷 Pink',
-    css: 'sepia(0.15) saturate(2) hue-rotate(300deg) brightness(1.08)',
-    matrix: [1.3,0.1,0.2,0,0, 0,0.8,0.1,0,0, 0.1,0,0.9,0,0, 0,0,0,1,0] },
-  { id: 'vintage',  label: '📷 Vintage',
-    css: 'sepia(0.55) contrast(1.15) brightness(0.92) saturate(0.8)',
-    matrix: [0.9,0.2,0.05,0,0, 0.05,0.75,0.05,0,0, 0,0.1,0.5,0,0, 0,0,0,1,0] },
-  { id: 'retro',    label: '🎞 Retro',
-    css: 'sepia(0.4) hue-rotate(15deg) saturate(1.6) contrast(1.15)',
-    matrix: [1.1,0.15,0,0,0, 0,0.95,0.1,0,0, 0,0.05,0.7,0,0, 0,0,0,1,0] },
-  { id: 'bw',       label: '🖤 B&W',
-    css: 'grayscale(1) contrast(1.15) brightness(1.05)',
-    matrix: [0.33,0.33,0.33,0,0, 0.33,0.33,0.33,0,0, 0.33,0.33,0.33,0,0, 0,0,0,1,0] },
-  { id: 'dramatic', label: '🎭 Drama',
-    css: 'grayscale(0.3) contrast(1.4) brightness(0.9) saturate(1.3)',
-    matrix: [0.8,0.1,0.1,0,-0.05, 0.05,1.1,0.05,0,-0.05, 0.05,0.05,0.8,0,-0.05, 0,0,0,1,0] },
-  { id: 'lomo',     label: '🔴 Lomo',
-    css: 'saturate(1.8) contrast(1.3) brightness(0.85)',
-    matrix: [1.3,0,0,0,-0.1, 0,1.1,0,0,-0.1, 0,0,0.8,0,-0.1, 0,0,0,1,0] },
-  { id: 'cold',     label: '🧊 Cold',
-    css: 'saturate(0.7) hue-rotate(195deg) brightness(1.1)',
-    matrix: [0.7,0.1,0.2,0,0.02, 0.05,0.8,0.15,0,0.02, 0.1,0.1,1.1,0,0.05, 0,0,0,1,0] },
-  { id: 'golden',   label: '✨ Golden',
-    css: 'sepia(0.4) saturate(1.6) brightness(1.12) hue-rotate(340deg)',
-    matrix: [1.25,0.15,0,0,0.05, 0.05,1.05,0,0,0.02, 0,0,0.6,0,-0.05, 0,0,0,1,0] },
-  { id: 'dreamy',   label: '💫 Dreamy',
-    css: 'brightness(1.12) saturate(0.75) contrast(0.88)',
-    matrix: [0.9,0.05,0.05,0,0.08, 0.05,0.9,0.05,0,0.08, 0.05,0.05,0.85,0,0.08, 0,0,0,1,0] },
+  { id: 'normal',  label: '✨ Normal',  css: 'none', matrix: null },
+
+  // Soft — brighter, creamy, less contrast
+  { id: 'soft',    label: '🌸 Soft',
+    css: 'brightness(1.15) saturate(0.7) contrast(0.85)',
+    matrix: [1.0,0,0,0,0.08, 0,0.9,0,0,0.06, 0,0,0.9,0,0.06, 0,0,0,1,0] },
+
+  // Warm — strong orange/yellow push
+  { id: 'warm',    label: '🌅 Warm',
+    css: 'sepia(0.6) saturate(1.8) brightness(1.1)',
+    matrix: [1.4,0.2,0,0,0.08, 0.1,1.0,0,0,0.03, 0,0,0.5,0,-0.1, 0,0,0,1,0] },
+
+  // Pink — strong pink/magenta push
+  { id: 'pink',    label: '🩷 Pink',
+    css: 'sepia(0.2) saturate(2.5) hue-rotate(300deg) brightness(1.1)',
+    matrix: [1.5,0,0.3,0,0.05, 0,0.7,0.1,0,0, 0.2,0,0.8,0,0.05, 0,0,0,1,0] },
+
+  // Vintage — heavy sepia, faded
+  { id: 'vintage', label: '📷 Vintage',
+    css: 'sepia(0.8) contrast(1.2) brightness(0.9)',
+    matrix: [1.0,0.3,0.1,0,0, 0.1,0.8,0.1,0,0, 0.05,0.15,0.45,0,0, 0,0,0,1,0] },
+
+  // Retro — warm yellow film look
+  { id: 'retro',   label: '🎞 Retro',
+    css: 'sepia(0.5) hue-rotate(20deg) saturate(2) contrast(1.2)',
+    matrix: [1.3,0.2,0,0,0.05, 0.1,1.0,0.1,0,0, 0,0.1,0.5,0,-0.1, 0,0,0,1,0] },
+
+  // B&W — full grayscale
+  { id: 'bw',      label: '🖤 B&W',
+    css: 'grayscale(1) contrast(1.3) brightness(1.05)',
+    matrix: [0.299,0.587,0.114,0,0, 0.299,0.587,0.114,0,0, 0.299,0.587,0.114,0,0, 0,0,0,1,0] },
+
+  // Drama — dark, high contrast
+  { id: 'dramatic',label: '🎭 Drama',
+    css: 'contrast(1.6) brightness(0.8) saturate(1.4)',
+    matrix: [1.2,0,0,0,-0.15, 0,1.2,0,0,-0.15, 0,0,1.2,0,-0.15, 0,0,0,1,0] },
+
+  // Lomo — vivid oversaturated
+  { id: 'lomo',    label: '🔴 Lomo',
+    css: 'saturate(2.5) contrast(1.4) brightness(0.85)',
+    matrix: [1.6,0,0,0,-0.15, 0,1.3,0,0,-0.15, 0,0,0.7,0,-0.1, 0,0,0,1,0] },
+
+  // Cold — strong blue push
+  { id: 'cold',    label: '🧊 Cold',
+    css: 'saturate(0.6) hue-rotate(200deg) brightness(1.15)',
+    matrix: [0.6,0,0.3,0,0.05, 0,0.7,0.2,0,0.05, 0.1,0.1,1.4,0,0.05, 0,0,0,1,0] },
+
+  // Golden — strong warm golden glow
+  { id: 'golden',  label: '✨ Golden',
+    css: 'sepia(0.6) saturate(2) brightness(1.15) hue-rotate(340deg)',
+    matrix: [1.5,0.2,0,0,0.1, 0.1,1.1,0,0,0.05, 0,0,0.4,0,-0.1, 0,0,0,1,0] },
+
+  // Dreamy — washed out, faded
+  { id: 'dreamy',  label: '💫 Dreamy',
+    css: 'brightness(1.2) saturate(0.5) contrast(0.75)',
+    matrix: [0.85,0,0,0,0.15, 0,0.85,0,0,0.12, 0,0,0.85,0,0.15, 0,0,0,1,0] },
 ]
 
 // ── Layouts ───────────────────────────────────────────────────
@@ -462,7 +483,7 @@ export default function PhotoboothPage() {
               ref={videoRef}
               style={{
                 ...s.video,
-                filter:    currentFilter?.css !== 'none' ? currentFilter?.css : 'none',
+                filter: currentFilter?.id === 'normal' ? 'none' : currentFilter?.css,
                 transform: facingMode === 'user' ? 'scaleX(-1)' : 'scaleX(1)',
               }}
               playsInline
