@@ -3,14 +3,16 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 const QUOTES = [
-  "you're the reason I smile for no reason at all 🌙",
-  "every photo you take lives in my heart forever 💗",
+  "damihan lagi pag pic dahil araw-araw kang maganda🌙",
+  "never akong magsasawa sa mukha mo loviee! 💗",
   "i'd choose you in every lifetime, every universe 🌸",
-  "you make ordinary days feel like magic ✨",
-  "my favorite notification is always you 💌",
-  "you're my favorite person to miss 🥺",
-  "i fall for you a little more every single day 💕",
-  "being yours is my favorite thing about life 🌷",
+  "bare face?, jwu face? fftb face? even haggard face sobrang ganda mo!! ✨",
+  "tubig is water, ilog is river imissyouu baby 💌",
+  "Attention!! kung hindi ikaw yung baby ko wag ka mag pic you madafaka",
+  "Ayan na ang pinaka magandang babae!! mag pipicture na! ",
+  "Always smile my baby, your smile is everything 🌷",
+  "Nung umulan ng sobrang gandang gf, andon ako sa labas naglulumpasay",
+  "hi baby, are you ready to picture na?🌷",
 ]
 
 const CONFETTI_COLORS = [
@@ -182,7 +184,7 @@ export default function WelcomePage() {
           </div>
 
           {/* this is just for you */}
-          <p style={s.forYouLabel}>this is just for you</p>
+          <p style={s.forYouLabel}>this is just for deidree only okay!</p>
 
           {/* main quote card */}
           <div style={s.quoteCard}>
@@ -194,7 +196,7 @@ export default function WelcomePage() {
           {/* from signature */}
           <div style={s.fromWrap}>
             <div style={s.fromLine} />
-            <p style={s.fromText}>— from the one who loves you most 💕</p>
+            <p style={s.fromText}>— from abe ang poging boyfriend 💕</p>
             <div style={s.fromLine} />
           </div>
 
