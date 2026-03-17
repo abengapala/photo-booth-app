@@ -27,7 +27,7 @@ export default function LoginPage() {
     }
 
     if (data.user.email === GIRLFRIEND_EMAIL) {
-      router.push('/upload')
+      router.push('/welcome')
     } else if (data.user.email === BOYFRIEND_EMAIL) {
       router.push('/dashboard')
     }
