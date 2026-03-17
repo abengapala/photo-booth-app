@@ -289,7 +289,19 @@ export default function PhotoboothPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) router.push('/login')
+      if (!data.session) {
+        router.push('/login')
+        return
+      }
+  
+      // show welcome once per day
+      const today = new Date().toDateString()
+      const lastSeen = localStorage.getItem('welcome_last_seen')
+  
+      if (lastSeen !== today) {
+        localStorage.setItem('welcome_last_seen', today)
+        router.push('/welcome')
+      }
     })
   }, [])
 

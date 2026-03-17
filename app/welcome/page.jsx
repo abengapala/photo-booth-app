@@ -30,10 +30,12 @@ export default function WelcomePage() {
   const [showContinue,setShowContinue]= useState(false)
 
   const MESSAGES = [
-    { text: 'i miss you',        emoji: '🥺', delay: 0    },
-    { text: 'so so so much',     emoji: '💗', delay: 1200 },
-    { text: 'i love you',        emoji: '💕', delay: 2600 },
-    { text: 'more than anything',emoji: '🌙', delay: 4000 },
+    { text: 'welcome to',                    emoji: '', delay: 0    },
+    { text: "Deidree's Photo Booth",         emoji: '', delay: 1200 },
+    { text: 'my girl, my one and only,',     emoji: '', delay: 2600 },
+    { text: 'my everything',                 emoji: '', delay: 3800 },
+    { text: 'i love you!!',                  emoji: '', delay: 5000 },
+    { text: 'more than anything, my baby',   emoji: '', delay: 6200 },
   ]
 
   useEffect(() => {
@@ -65,9 +67,9 @@ export default function WelcomePage() {
 
     // phase sequence
     setTimeout(() => setPhase('burst'),   300)
-    setTimeout(() => setPhase('message'), 800)
-    setTimeout(() => setPhase('quote'),   5500)
-    setTimeout(() => setShowContinue(true), 6800)
+setTimeout(() => setPhase('message'), 800)
+setTimeout(() => setPhase('quote'),   8000)   // wait for all 6 messages
+setTimeout(() => setShowContinue(true), 9500)
   }, [])
 
   // animate messages one by one
@@ -152,9 +154,6 @@ export default function WelcomePage() {
       {/* ── MESSAGE PHASE ── */}
       {(phase === 'message' || phase === 'burst') && (
         <div style={s.messageWrap}>
-          <div style={{ ...s.bigEmoji, animation: 'pulse 1.5s ease-in-out infinite' }}>
-            {MESSAGES[msgIndex]?.emoji}
-          </div>
 
           {MESSAGES.map((m, i) => (
             <div key={i} style={{
