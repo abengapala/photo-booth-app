@@ -86,6 +86,8 @@ const THEMES = [
     id: 'olivia',
     label: 'Olivia R.',
     emoji: '💜',
+    themePhoto: '/themes/olivia.jpg',
+    headerText: '★ SOUR ★ brutal ★ good 4 u ★',
     bg: '#0d0010',
     border: '#9b59b6',
     frameBorder: '#6c3483',
@@ -104,8 +106,10 @@ const THEMES = [
   },
   {
     id: 'ariana',
-    label: 'Ariana G.',
-    emoji: '🌙',
+  label: 'Ariana G.',
+  emoji: '🌙',
+  themePhoto: '/themes/ariana.jpg',
+  headerText: '✨ thank u, next ✨ positions ✨',
     bg: '#1a0020',
     border: '#ff1493',
     frameBorder: '#c71585',
@@ -124,8 +128,10 @@ const THEMES = [
   },
   {
     id: 'taylor',
-    label: 'Taylor S.',
-    emoji: '🌟',
+  label: 'Taylor S.',
+  emoji: '🌟',
+  themePhoto: '/themes/taylor.jpg',
+  headerText: '✦ speak now ✦ 1989 ✦ eras ✦',
     bg: '#0a0505',
     border: '#c9a84c',
     frameBorder: '#c9a84c',
@@ -146,6 +152,8 @@ const THEMES = [
     id: 'loudhouse',
     label: 'Loud House',
     emoji: '🏠',
+    themePhoto: '/themes/loudhouse.jpg',
+    headerText: '★ THE LOUD HOUSE ★',
     bg: '#ffffff',
     border: '#000000',
     frameBorder: '#000000',
@@ -218,7 +226,22 @@ const THEMES = [
       { text: '◦', x: 0.12, y: 0.97, size: 16, color: '#bbb' },
       { text: '◦', x: 0.88, y: 0.97, size: 16, color: '#bbb' },
     ],
-  },
+  id: 'sabrina',
+  label: 'Sabrina C.',
+  emoji: '🌻',
+  bg: '#0a1a2e',
+  border: '#ffd700',
+  frameBorder: '#ffd700',
+  footerColor: '#ffd700',
+  themePhoto: '/themes/sabrina.jpg',
+  headerText: '🌻 Sabrina Carpenter 🌻',
+  footerText: '☆ please please please ☆',
+  dateColor: 'rgba(255,215,0,0.5)',
+  decorations: [
+    { text: '☆', x: 0.05, y: 0.03, size: 18, color: '#ffd700' },
+    { text: '☆', x: 0.92, y: 0.03, size: 18, color: '#ffd700' },
+  ],
+},
 ]
 
 // ── Filter pixel manipulation ─────────────────────────────────
@@ -359,55 +382,86 @@ export default function PhotoboothPage() {
     const FRAME_W = 420
     const FRAME_H = 320
     const PAD     = 16
-    const HEADER  = 44
-    const FOOTER  = 64
+    const HEADER  = 80  // taller header for theme photo
+    const FOOTER  = 80  // taller footer for theme photo
     const STRIP_W = FRAME_W + PAD * 2
     const STRIP_H = HEADER + PAD + (FRAME_H + PAD) * layout + FOOTER
-
+  
     const canvas  = document.createElement('canvas')
     canvas.width  = STRIP_W
     canvas.height = STRIP_H
     const ctx     = canvas.getContext('2d')
-
+  
     // background
     ctx.fillStyle = t.bg
     ctx.fillRect(0, 0, STRIP_W, STRIP_H)
-
-    // outer border (thick themed)
+  
+    // ── Draw theme photo in header and footer ──
+    if (t.themePhoto) {
+      try {
+        const themeImg = await loadImage(t.themePhoto)
+  
+        // header — full width strip, cropped to header height
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(0, 0, STRIP_W, HEADER)
+        ctx.clip()
+        // draw cover-fit
+        const hRatio = STRIP_W / themeImg.naturalWidth
+        const hH     = themeImg.naturalHeight * hRatio
+        const hOffY  = (HEADER - hH) / 2
+        ctx.globalAlpha = 0.55
+        ctx.drawImage(themeImg, 0, hOffY, STRIP_W, hH)
+        ctx.globalAlpha = 1
+        ctx.restore()
+  
+        // footer — same
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(0, STRIP_H - FOOTER, STRIP_W, FOOTER)
+        ctx.clip()
+        ctx.globalAlpha = 0.55
+        ctx.drawImage(themeImg, 0, STRIP_H - FOOTER + hOffY, STRIP_W, hH)
+        ctx.globalAlpha = 1
+        ctx.restore()
+  
+      } catch { /* skip if image fails */ }
+    }
+  
+    // overlay tint on header/footer so text is readable
+    ctx.fillStyle = t.bg + 'cc'
+    ctx.fillRect(0, 0, STRIP_W, HEADER)
+    ctx.fillRect(0, STRIP_H - FOOTER, STRIP_W, FOOTER)
+  
+    // outer border
     ctx.strokeStyle = t.border
     ctx.lineWidth   = 4
     ctx.strokeRect(4, 4, STRIP_W - 8, STRIP_H - 8)
-
-    // inner border (thin)
+  
+    // inner border
     ctx.strokeStyle = t.border
     ctx.lineWidth   = 1
     ctx.strokeRect(10, 10, STRIP_W - 20, STRIP_H - 20)
-
-    // side label (left vertical text)
-    if (t.sideText) {
-      ctx.save()
-      ctx.translate(18, STRIP_H / 2)
-      ctx.rotate(-Math.PI / 2)
-      ctx.fillStyle  = t.sideColor
-      ctx.font       = 'bold 11px sans-serif'
-      ctx.textAlign  = 'center'
-      ctx.fillText(t.sideText, 0, 0)
-      ctx.restore()
-    }
-
-    // decorations (corners + top)
-    for (const d of t.decorations) {
+  
+    // header text
+    ctx.fillStyle = t.footerColor
+    ctx.font      = 'bold italic 18px Georgia, serif'
+    ctx.textAlign = 'center'
+    ctx.fillText(t.headerText || t.footerText, STRIP_W / 2, HEADER / 2 + 6)
+  
+    // decorations
+    for (const d of (t.decorations || [])) {
       ctx.fillStyle = d.color
       ctx.font      = `${d.size}px sans-serif`
       ctx.textAlign = 'center'
       ctx.fillText(d.text, d.x * STRIP_W, d.y * STRIP_H)
     }
-
-    // load images
+  
+    // load all shot images
     const images = await Promise.all(
       shots.slice(0, layout).map(shot => loadImage(shot.dataUrl))
     )
-
+  
     function drawCover(ctx, img, x, y, w, h) {
       const imgRatio = img.naturalWidth / img.naturalHeight
       const frmRatio = w / h
@@ -421,14 +475,14 @@ export default function PhotoboothPage() {
       }
       ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h)
     }
-
+  
     // draw frames
     for (let i = 0; i < layout; i++) {
       const img = images[i]
       if (!img) continue
       const x = PAD
       const y = HEADER + PAD + i * (FRAME_H + PAD)
-
+  
       ctx.save()
       ctx.beginPath()
       ctx.rect(x, y, FRAME_W, FRAME_H)
@@ -438,27 +492,26 @@ export default function PhotoboothPage() {
       ctx.filter = 'none'
       drawCover(ctx, img, x, y, FRAME_W, FRAME_H)
       ctx.restore()
-
-      // frame border
+  
       ctx.strokeStyle = t.frameBorder
       ctx.lineWidth   = 2
       ctx.strokeRect(x, y, FRAME_W, FRAME_H)
     }
-
+  
     // footer text
-    const footerY = STRIP_H - FOOTER + 20
+    const footerMid = STRIP_H - FOOTER + FOOTER / 2
     ctx.fillStyle = t.footerColor
     ctx.font      = 'italic bold 16px Georgia, serif'
     ctx.textAlign = 'center'
-    ctx.fillText(t.footerText, STRIP_W / 2, footerY)
-
+    ctx.fillText(t.footerText, STRIP_W / 2, footerMid)
+  
     const date = new Date().toLocaleDateString('en-PH', {
       month: 'long', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila',
     })
     ctx.fillStyle = t.dateColor
     ctx.font      = '12px sans-serif'
-    ctx.fillText(date, STRIP_W / 2, footerY + 20)
-
+    ctx.fillText(date, STRIP_W / 2, footerMid + 20)
+  
     return canvas.toDataURL('image/jpeg', 0.93)
   }
 
