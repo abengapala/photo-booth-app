@@ -204,10 +204,23 @@ export default function PhotoboothPage() {
   async function generateStrip() {
     const t       = currentTheme
     const isGrid  = layoutGrid
-    const FRAME_W = isGrid ? 200 : 400
-    const FRAME_H = isGrid ? 200 : 290
-    const PAD     = 14
-    const FOOTER  = 64
+
+    // Use actual shot dimensions to avoid stretch
+    const firstShot = shots[0]
+    let shotW = 640, shotH = 480
+    if (firstShot) {
+      const tmpImg   = await loadImage(firstShot.dataUrl)
+      shotW = tmpImg.naturalWidth
+      shotH = tmpImg.naturalHeight
+    }
+    const shotRatio = shotH / shotW
+
+    // frame width fixed, height matches actual photo ratio
+    const FRAME_W = isGrid ? 180 : 360   // slightly smaller frames
+    const FRAME_H = isGrid ? 180 : Math.round(FRAME_W * shotRatio)
+    const PAD     = 28    // thick padding so theme bg shows around photos
+    const FOOTER  = 80    // taller footer for theme text
+    const BORDER  = 8     // thick outer border
     let STRIP_W, STRIP_H
 
     if (isGrid) {
@@ -255,17 +268,38 @@ export default function PhotoboothPage() {
       } catch(e) { console.log('theme image failed:', e) }
     }
 
-    // outer border (thick)
+    // outer border (very thick — theme color)
     ctx.strokeStyle = t.border
-    ctx.lineWidth   = 3
-    ctx.strokeRect(3, 3, STRIP_W - 6, STRIP_H - 6)
+    ctx.lineWidth   = BORDER
+    ctx.strokeRect(BORDER/2, BORDER/2, STRIP_W - BORDER, STRIP_H - BORDER)
 
-    // inner border (dashed)
+    // inner border (thin dashed)
     ctx.strokeStyle = t.border
-    ctx.lineWidth   = 1
-    ctx.setLineDash([5, 4])
-    ctx.strokeRect(9, 9, STRIP_W - 18, STRIP_H - 18)
+    ctx.lineWidth   = 1.5
+    ctx.globalAlpha = 0.5
+    ctx.setLineDash([6, 4])
+    ctx.strokeRect(BORDER + 4, BORDER + 4, STRIP_W - (BORDER + 4)*2, STRIP_H - (BORDER + 4)*2)
     ctx.setLineDash([])
+    ctx.globalAlpha = 1
+
+    // top header bar — solid theme color strip
+    ctx.fillStyle = t.border
+    ctx.globalAlpha = 0.15
+    ctx.fillRect(0, 0, STRIP_W, PAD)
+    ctx.globalAlpha = 1
+
+    // bottom footer bar — solid theme color strip
+    ctx.fillStyle = t.border
+    ctx.globalAlpha = 0.15
+    ctx.fillRect(0, STRIP_H - FOOTER, STRIP_W, FOOTER)
+    ctx.globalAlpha = 1
+
+    // left and right side bars
+    ctx.fillStyle = t.border
+    ctx.globalAlpha = 0.08
+    ctx.fillRect(0, PAD, PAD, STRIP_H - PAD - FOOTER)
+    ctx.fillRect(STRIP_W - PAD, PAD, PAD, STRIP_H - PAD - FOOTER)
+    ctx.globalAlpha = 1
 
     // load images
     const images = await Promise.all(
@@ -273,11 +307,24 @@ export default function PhotoboothPage() {
     )
 
     function drawCover(ctx, img, x, y, w, h) {
-      const ir = img.naturalWidth / img.naturalHeight, fr = w / h
-      let sx, sy, sw, sh
-      if (ir > fr) { sh = img.naturalHeight; sw = sh*fr; sx = (img.naturalWidth-sw)/2; sy = 0 }
-      else { sw = img.naturalWidth; sh = sw/fr; sx = 0; sy = (img.naturalHeight-sh)/2 }
-      ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h)
+      // object-fit: contain — show FULL photo, no cropping, no stretching
+      const ir = img.naturalWidth / img.naturalHeight
+      const fr = w / h
+      let dw, dh, dx, dy
+      if (ir > fr) {
+        // photo wider than frame — fit width, letterbox top/bottom
+        dw = w
+        dh = w / ir
+        dx = x
+        dy = y + (h - dh) / 2
+      } else {
+        // photo taller than frame — fit height, pillarbox sides
+        dh = h
+        dw = h * ir
+        dx = x + (w - dw) / 2
+        dy = y
+      }
+      ctx.drawImage(img, dx, dy, dw, dh)
     }
 
     if (isGrid) {
@@ -304,14 +351,15 @@ export default function PhotoboothPage() {
     }
 
     // footer
-    const footerY = STRIP_H - FOOTER + 20
+    const footerMid = STRIP_H - FOOTER/2
     ctx.fillStyle = t.footerColor
-    ctx.font      = 'italic bold 15px Georgia, serif'
+    ctx.font      = 'italic bold 18px Georgia, serif'
     ctx.textAlign = 'center'
-    ctx.fillText(t.footerText, STRIP_W/2, footerY)
+    ctx.fillText(t.footerText, STRIP_W/2, footerMid - 8)
     const date = new Date().toLocaleDateString('en-PH', { month:'long', day:'numeric', year:'numeric', timeZone:'Asia/Manila' })
-    ctx.fillStyle = t.dateColor; ctx.font = '11px sans-serif'
-    ctx.fillText(date, STRIP_W/2, footerY + 18)
+    ctx.fillStyle = t.dateColor
+    ctx.font      = '13px sans-serif'
+    ctx.fillText(date, STRIP_W/2, footerMid + 14)
 
     return canvas.toDataURL('image/jpeg', 0.93)
   }
@@ -611,7 +659,7 @@ const s = {
   shotThumbImg: { width:'100%', height:'100%', objectFit:'cover' },
   reviewGrid: { display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'12px', width:'100%' },
   reviewFrame: { borderRadius:'14px', overflow:'hidden', background:'#2c1f2e', border:'1px solid rgba(244,167,185,0.15)', display:'flex', flexDirection:'column' },
-  reviewImg: { width:'100%', aspectRatio:'4/3', objectFit:'cover', display:'block' },
+  reviewImg: { width:'100%', height:'auto', objectFit:'contain', display:'block', background:'#1a0f1e' },
   retakeBtn: { flex:1, background:'rgba(232,121,160,0.85)', color:'#fff', border:'none', padding:'9px 8px', fontSize:'12px', fontFamily:"'DM Sans', sans-serif", cursor:'pointer', fontWeight:'500', WebkitTapHighlightColor:'transparent', touchAction:'manipulation' },
   reviewLabel: { textAlign:'center', color:'rgba(255,255,255,0.5)', fontSize:'11px', fontFamily:"'DM Sans', sans-serif", padding:'4px 0', background:'#1a0f1e' },
   stripPreview: { width:'100%', maxWidth:'340px', height:'auto', borderRadius:'16px', boxShadow:'0 8px 40px rgba(0,0,0,0.5)', border:'1px solid rgba(244,167,185,0.2)' },
