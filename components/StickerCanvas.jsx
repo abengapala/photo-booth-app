@@ -8,16 +8,16 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 // Example: 'bow.png', 'sparkle.png', 'heart.png'
 
 const STICKER_FILES = [
-  'sticker1.png',
-  'sticker2.png',
-  'sticker3.png',
-  'sticker4.png',
-  'sticker5.png',
-  'sticker6.png',
-  'sticker7.png',
-  'sticker8.png',
-  'sticker9.png',
-  'sticker10.png',
+  'stickers1.png',
+  'stickers2.png',
+  'stickers3.png',
+  'stickers4.png',
+  'stickers5.png',
+  'stickers6.png',
+  'stickers7.png',
+  'stickers8.png',
+  'stickers9.png',
+  'stickers10.png',
 ]
 
 // ── Draggable Sticker Canvas Component ───────────────────────
