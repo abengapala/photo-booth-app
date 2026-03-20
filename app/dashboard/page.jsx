@@ -119,6 +119,10 @@ export default function DashboardPage() {
         </div>
         <div style={s.headerRight}>
           <button
+            style={s.boothBtn}
+            onClick={() => router.push('/upload')}
+          >📷 Booth</button>
+          <button
             style={{ ...s.viewBtn, ...(view === 'grid'  ? s.viewBtnActive : {}) }}
             onClick={() => setView('grid')}
           >🖼 Grid</button>
@@ -269,6 +273,19 @@ const s = {
     background: 'linear-gradient(135deg, #f4a7b9, #e879a0)',
     border: '1px solid transparent',
     color: '#fff',
+  },
+  boothBtn: {
+    background: 'linear-gradient(135deg, #7c3aed, #db2777)',
+    border: 'none',
+    borderRadius: '10px',
+    padding: '8px 14px',
+    color: '#fff',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontFamily: "'DM Sans', sans-serif",
+    fontWeight: '500',
+    WebkitTapHighlightColor: 'transparent',
+    boxShadow: '0 2px 12px rgba(139,92,246,0.35)',
   },
   logout: {
     background: 'none',
