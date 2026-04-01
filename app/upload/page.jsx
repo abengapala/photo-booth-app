@@ -106,7 +106,7 @@ function applyAdvancedSliders(dataUrl, brightness, contrast, saturation){
       }
 
       ctx.putImageData(imageData, 0, 0)
-      resolve(canvas.toDataURL('image/jpeg', 0.92))
+      resolve(canvas.toDataURL('image/png')) // PNG — lossless intermediate
     }
     img.src = dataUrl
   })
@@ -115,12 +115,13 @@ function applyAdvancedSliders(dataUrl, brightness, contrast, saturation){
 function captureFrame(videoEl,filterObj,mirror){
   const W=videoEl.videoWidth||640,H=videoEl.videoHeight||480
   const raw=document.createElement('canvas'); raw.width=W; raw.height=H
-  const rc=raw.getContext('2d')
+  const rc=raw.getContext('2d',{willReadFrequently:true})
   if(mirror){rc.translate(W,0);rc.scale(-1,1)}
   rc.drawImage(videoEl,0,0)
   if(mirror)rc.setTransform(1,0,0,1,0,0)
-  if(filterObj&&filterObj.matrix)return applyMatrixFilter(raw,filterObj.matrix).toDataURL('image/jpeg',0.92)
-  return raw.toDataURL('image/jpeg',0.92)
+  // use PNG for intermediate — no quality loss between steps
+  if(filterObj&&filterObj.matrix)return applyMatrixFilter(raw,filterObj.matrix).toDataURL('image/png')
+  return raw.toDataURL('image/png')
 }
 
 export default function PhotoboothPage(){
@@ -161,7 +162,7 @@ export default function PhotoboothPage(){
   const [processing,    setProcessing]    = useState(false)
   const [flashOn,       setFlashOn]       = useState(false)
   const [camAllowed,    setCamAllowed]    = useState(true)
-  const [timerSecs,     setTimerSecs]     = useState(3)  // 3 | 5 | 10
+  const [timerSecs,     setTimerSec]     = useState(3)  // 3 | 5 | 10
   const [stickerMode,   setStickerMode]   = useState(false)
   const [stickerShotIdx,setStickerShotIdx]= useState(0)
   const [showAdvanced,  setShowAdvanced]  = useState(false)
@@ -172,7 +173,6 @@ export default function PhotoboothPage(){
   const [beautyMode,    setBeautyMode]    = useState(0)
   const [recentPhotos,  setRecentPhotos]  = useState([])
   const [recentLoading, setRecentLoading] = useState(false)
-
 
   const videoRef   = useRef(null)
   const streamRef  = useRef(null)
@@ -324,7 +324,8 @@ export default function PhotoboothPage(){
     ctx.fillText(t.footerText,STRIP_W/2,fm-8)
     const date=new Date().toLocaleDateString('en-PH',{month:'long',day:'numeric',year:'numeric',timeZone:'Asia/Manila'})
     ctx.fillStyle=t.dateColor;ctx.font='13px sans-serif';ctx.fillText(date,STRIP_W/2,fm+14)
-    return canvas.toDataURL('image/jpeg',0.93)
+    // final output — JPEG at max quality (only compressed once here)
+    return canvas.toDataURL('image/jpeg',1.0)
   }
 
   function loadImage(src){
@@ -349,7 +350,13 @@ export default function PhotoboothPage(){
     setUploading(true)
     try{
       const blob=dataURLtoBlob(stripUrl)
-      const compressed=await imageCompression(blob,{maxSizeMB:0.6,maxWidthOrHeight:1400,useWebWorker:true,fileType:'image/jpeg',initialQuality:0.85})
+      const compressed=await imageCompression(blob,{
+        maxSizeMB:2.0,           // increased from 0.6 — more room for quality
+        maxWidthOrHeight:2400,   // increased from 1400 — higher resolution
+        useWebWorker:true,
+        fileType:'image/jpeg',
+        initialQuality:0.95      // increased from 0.85 — much better quality
+      })
       const path=`strip_${Date.now()}.jpg`
       const{error:upErr}=await supabase.storage.from('photos').upload(path,compressed,{contentType:'image/jpeg'})
       if(upErr)throw upErr
