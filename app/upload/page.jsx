@@ -162,7 +162,7 @@ export default function PhotoboothPage(){
   const [processing,    setProcessing]    = useState(false)
   const [flashOn,       setFlashOn]       = useState(false)
   const [camAllowed,    setCamAllowed]    = useState(true)
-  const [timerSecs,     setTimerSec]     = useState(3)  // 3 | 5 | 10
+  const [timerSecs,     setTimerSecs]     = useState(3)  // 3 | 5 | 10
   const [stickerMode,   setStickerMode]   = useState(false)
   const [stickerShotIdx,setStickerShotIdx]= useState(0)
   const [showAdvanced,  setShowAdvanced]  = useState(false)
@@ -192,7 +192,14 @@ export default function PhotoboothPage(){
     const mode=facing??facingMode
     try{
       streamRef.current?.getTracks().forEach(t=>t.stop())
-      const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:mode}},audio:false})
+      const stream=await navigator.mediaDevices.getUserMedia({
+        video:{
+          facingMode:{ideal:mode},
+          width:{ideal:1920},
+          height:{ideal:1080},
+        },
+        audio:false
+      })
       streamRef.current=stream
       const vid=videoRef.current
       vid.setAttribute('autoplay',''); vid.setAttribute('muted',''); vid.setAttribute('playsinline','')
